@@ -1,0 +1,26 @@
+[
+  {
+    "id": "runner",
+    "name": "Runner",
+    "baseHp": 30,
+    "baseSpeed": 120,
+    "armor": 0,
+    "breakthroughDamage": 1,
+    "currencyReward": 5,
+    "scoreReward": 10,
+    "movementType": "ground",
+    "spriteKey": "enemy-runner"
+  },
+  {
+    "id": "tank",
+    "name": "Tank",
+    "baseHp": 100,
+    "baseSpeed": 60,
+    "armor": 3,
+    "breakthroughDamage": 3,
+    "currencyReward": 15,
+    "scoreReward": 25,
+    "movementType": "ground",
+    "spriteKey": "enemy-tank"
+  }
+]

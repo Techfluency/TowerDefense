@@ -15,6 +15,8 @@ interface ImportMetaEnv {
   readonly VITE_DEBUG: string;
   /** Base URL for Phaser asset loading. */
   readonly VITE_ASSET_BASE_URL: string;
+  /** Optional fixed seed for reproducible game runs. */
+  readonly VITE_GAME_SEED: string;
 }
 
 interface ImportMeta {

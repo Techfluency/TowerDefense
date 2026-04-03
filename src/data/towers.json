@@ -1,0 +1,28 @@
+[
+  {
+    "id": "ranged",
+    "name": "Arrow Tower",
+    "towerClass": "ranged",
+    "cost": 50,
+    "range": 200,
+    "fireRate": 1.5,
+    "damage": 10,
+    "maxHp": 0,
+    "targetingMode": "first",
+    "description": "Fires arrows at moderate speed. Good all-around tower.",
+    "spriteKey": "tower-ranged"
+  },
+  {
+    "id": "focused",
+    "name": "Sniper Tower",
+    "towerClass": "focused",
+    "cost": 100,
+    "range": 350,
+    "fireRate": 0.5,
+    "damage": 40,
+    "maxHp": 0,
+    "targetingMode": "strongest",
+    "description": "High damage, slow fire rate. Best against armored targets.",
+    "spriteKey": "tower-focused"
+  }
+]

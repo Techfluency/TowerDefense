@@ -1,0 +1,14 @@
+[
+  {
+    "id": "arrow",
+    "speed": 400,
+    "splashRadius": 0,
+    "spriteKey": "projectile-arrow"
+  },
+  {
+    "id": "blast",
+    "speed": 250,
+    "splashRadius": 48,
+    "spriteKey": "projectile-blast"
+  }
+]

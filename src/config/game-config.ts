@@ -22,6 +22,7 @@ import { Preload } from '../scenes/Preload';
 import { MainMenu } from '../scenes/MainMenu';
 import { Gameplay } from '../scenes/Gameplay';
 import { GameOver } from '../scenes/GameOver';
+import { DebugOverlay } from '../scenes/DebugOverlay';
 
 /**
  * Scene keys used throughout the game for scene transitions.
@@ -33,6 +34,7 @@ export const SCENE_KEYS = {
   MAIN_MENU: 'MainMenu',
   GAMEPLAY: 'Gameplay',
   GAME_OVER: 'GameOver',
+  DEBUG_OVERLAY: 'DebugOverlay',
 } as const;
 
 /**
@@ -77,7 +79,7 @@ export function createGameConfig(): Phaser.Types.Core.GameConfig {
      * in the array automatically. Boot runs first to load env config
      * and minimal assets needed for the loading screen.
      */
-    scene: [Boot, Preload, MainMenu, Gameplay, GameOver],
+    scene: [Boot, Preload, MainMenu, Gameplay, GameOver, DebugOverlay],
 
     /**
      * Smooth scaling, not pixel art. The PRD calls for a "premium" visual

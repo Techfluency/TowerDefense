@@ -3,7 +3,8 @@
  *
  * Responsibilities:
  * 1. Display a loading progress bar while assets are being fetched.
- * 2. Load all sprites, tilesets, audio, and JSON data configs.
+ * 2. Load all sprites, tilesets, audio, and JSON data configs from
+ *    the asset manifest.
  * 3. Transition to MainMenu when loading is complete.
  *
  * Asset loading strategy:
@@ -11,12 +12,13 @@
  *   a single loading screen at startup and no mid-game loading hitches.
  * - Assets are loaded from the VITE_ASSET_BASE_URL path, which defaults
  *   to /assets in development and can be overridden for CDN in production.
- * - During scaffold phase, no actual assets exist yet. The loading
- *   progress bar will complete instantly. BOLT-002+ will add real
- *   asset loading calls here.
+ * - The asset manifest (src/config/asset-manifest.ts) is the single source
+ *   of truth for all asset keys and paths.
  */
 import Phaser from 'phaser';
 import { SCENE_KEYS, GAME_WIDTH, GAME_HEIGHT } from '../config/game-config';
+import { ASSET_MANIFEST } from '../config/asset-manifest';
+import type { EnvConfig } from '../config/env';
 
 export class Preload extends Phaser.Scene {
   constructor() {
@@ -25,8 +27,8 @@ export class Preload extends Phaser.Scene {
 
   /**
    * Phaser preload lifecycle method.
-   * Queue all assets for loading here. Phaser downloads them in parallel
-   * and calls create() when everything is ready.
+   * Queues all assets from the manifest for loading. Phaser downloads
+   * them in parallel and calls create() when everything is ready.
    */
   preload(): void {
     /* --- Loading Progress Bar ---
@@ -66,25 +68,57 @@ export class Preload extends Phaser.Scene {
       progressBar.destroy();
     });
 
-    /* --- Asset Loading ---
-     * No assets exist during scaffold. Engineering bolts will add
-     * load calls here as they create sprites, tilesets, and audio.
-     *
-     * Pattern for future bolts:
-     *   const baseUrl = this.registry.get('envConfig').assetBaseUrl;
-     *   this.load.image('tower-ranged', `${baseUrl}/sprites/tower-ranged.png`);
-     *   this.load.spritesheet('enemy-runner', `${baseUrl}/sprites/enemy-runner.png`, { ... });
-     *   this.load.tilemapTiledJSON('map-tiles', `${baseUrl}/tilesets/terrain.json`);
-     *   this.load.audio('bgm-gameplay', `${baseUrl}/audio/bgm-gameplay.ogg`);
-     *   this.load.json('tower-config', `${baseUrl}/../data/towers.json`);
-     */
+    /* --- Asset Loading from Manifest --- */
+    const envConfig = this.registry.get('envConfig') as EnvConfig;
+    const baseUrl = envConfig.assetBaseUrl;
+
+    /* Load sprite images. */
+    for (const sprite of ASSET_MANIFEST.sprites) {
+      this.load.image(sprite.key, `${baseUrl}/${sprite.path}`);
+    }
+
+    /* Load spritesheets with frame dimensions. */
+    for (const sheet of ASSET_MANIFEST.spritesheets) {
+      this.load.spritesheet(sheet.key, `${baseUrl}/${sheet.path}`, {
+        frameWidth: sheet.frameWidth,
+        frameHeight: sheet.frameHeight,
+      });
+    }
+
+    /* Load audio files. */
+    for (const audio of ASSET_MANIFEST.audio) {
+      this.load.audio(audio.key, `${baseUrl}/${audio.path}`);
+    }
+
+    /* Load JSON config files.
+     * JSON paths are relative to the base URL -- they live alongside
+     * the built source, not in the static assets directory. */
+    for (const json of ASSET_MANIFEST.json) {
+      this.load.json(json.key, json.path);
+    }
+
+    /* Load tilemap data. */
+    for (const tilemap of ASSET_MANIFEST.tilemaps) {
+      this.load.tilemapTiledJSON(tilemap.key, `${baseUrl}/${tilemap.path}`);
+    }
   }
 
   /**
    * Phaser create lifecycle method.
    * Called after all queued assets have finished loading.
+   * Verifies critical assets loaded, then transitions to MainMenu.
    */
   create(): void {
+    /* Verify critical textures loaded -- log warnings for missing ones. */
+    for (const sprite of ASSET_MANIFEST.sprites) {
+      if (!this.textures.exists(sprite.key)) {
+        console.warn(
+          `Preload: texture "${sprite.key}" failed to load from "${sprite.path}". ` +
+          'A fallback texture will be used.',
+        );
+      }
+    }
+
     /* All assets loaded -- transition to the main menu. */
     this.scene.start(SCENE_KEYS.MAIN_MENU);
   }

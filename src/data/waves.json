@@ -1,0 +1,53 @@
+[
+  {
+    "waveNumber": 1,
+    "groups": [
+      {
+        "enemyId": "runner",
+        "count": 5,
+        "spawnIntervalMs": 1000,
+        "delayMs": 0
+      }
+    ],
+    "prepTimeMs": 5000,
+    "isBossWave": false
+  },
+  {
+    "waveNumber": 2,
+    "groups": [
+      {
+        "enemyId": "runner",
+        "count": 8,
+        "spawnIntervalMs": 800,
+        "delayMs": 0
+      },
+      {
+        "enemyId": "tank",
+        "count": 2,
+        "spawnIntervalMs": 1500,
+        "delayMs": 2000
+      }
+    ],
+    "prepTimeMs": 8000,
+    "isBossWave": false
+  },
+  {
+    "waveNumber": 3,
+    "groups": [
+      {
+        "enemyId": "runner",
+        "count": 10,
+        "spawnIntervalMs": 600,
+        "delayMs": 0
+      },
+      {
+        "enemyId": "tank",
+        "count": 5,
+        "spawnIntervalMs": 1200,
+        "delayMs": 1000
+      }
+    ],
+    "prepTimeMs": 10000,
+    "isBossWave": true
+  }
+]

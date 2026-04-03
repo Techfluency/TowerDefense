@@ -220,8 +220,8 @@ export interface GameState {
   isPaused: boolean;
   /** Whether the game has ended (win or loss). */
   isGameOver: boolean;
-  /** The map seed used to generate this run's map. */
-  mapSeed: string;
+  /** The seed used for all randomness (map gen, wave composition, etc.). */
+  gameSeed: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -240,22 +240,28 @@ export interface GameState {
  * 3. Document which system emits it and which systems listen.
  */
 export const GAME_EVENTS = {
-  /** Emitted by BOLT-003 when an enemy is killed. Listened by BOLT-008 (rewards). */
+  /** Emitted by BOLT-003 when an enemy is killed. Listened by BOLT-004, BOLT-008, BOLT-009. */
   ENEMY_DIED: 'ENEMY_DIED',
   /** Emitted by BOLT-003 when an enemy reaches the objective. Listened by BOLT-009 (HP). */
   ENEMY_REACHED_OBJECTIVE: 'ENEMY_REACHED_OBJECTIVE',
+  /** Emitted by BOLT-006 when a projectile damages an enemy. Listened by BOLT-003. */
+  ENEMY_DAMAGED: 'ENEMY_DAMAGED',
   /** Emitted by BOLT-004 when a wave starts. Listened by BOLT-009 (HUD). */
   WAVE_STARTED: 'WAVE_STARTED',
   /** Emitted by BOLT-004 when all enemies in a wave are dead. Listened by BOLT-008, BOLT-009. */
   WAVE_COMPLETED: 'WAVE_COMPLETED',
   /** Emitted by BOLT-004 when all waves are exhausted. Listened by BOLT-009 (win state). */
   ALL_WAVES_COMPLETED: 'ALL_WAVES_COMPLETED',
-  /** Emitted by BOLT-005 when a tower is placed. Listened by BOLT-002 (path recalc). */
+  /** Emitted by BOLT-005 when a tower is placed. Listened by BOLT-002 (path recalc), BOLT-008. */
   TOWER_PLACED: 'TOWER_PLACED',
-  /** Emitted by BOLT-005 when a tower is sold/removed. */
+  /** Emitted by BOLT-005 when a tower is sold/removed. Listened by BOLT-002, BOLT-008. */
   TOWER_REMOVED: 'TOWER_REMOVED',
-  /** Emitted by BOLT-007 when a tower is upgraded. */
+  /** Emitted by BOLT-007 when a tower is upgraded. Listened by BOLT-009. */
   TOWER_UPGRADED: 'TOWER_UPGRADED',
+  /** Emitted by BOLT-006 when a tower fires. Listened by VFX hooks. */
+  TOWER_FIRED: 'TOWER_FIRED',
+  /** Emitted by BOLT-006 when a projectile hits an enemy. Listened by VFX, BOLT-003. */
+  ENEMY_HIT: 'ENEMY_HIT',
   /** Emitted by BOLT-008 when currency changes. Listened by BOLT-009 (HUD). */
   CURRENCY_CHANGED: 'CURRENCY_CHANGED',
   /** Emitted by BOLT-008 when score changes. Listened by BOLT-009 (HUD). */
@@ -264,6 +270,12 @@ export const GAME_EVENTS = {
   GAME_PAUSED: 'GAME_PAUSED',
   /** Emitted by BOLT-009 when the game is over (win or loss). */
   GAME_OVER: 'GAME_OVER',
+  /** Emitted by BOLT-001 InputSystem when a tile is clicked. Listened by BOLT-005. */
+  TILE_CLICKED: 'TILE_CLICKED',
+  /** Emitted by BOLT-001 InputSystem when the pointer crosses a tile boundary. Listened by BOLT-005. */
+  TILE_HOVER_CHANGED: 'TILE_HOVER_CHANGED',
+  /** Emitted by BOLT-001 InputSystem on Escape/right-click. Listened by BOLT-005. */
+  INPUT_CANCEL: 'INPUT_CANCEL',
 } as const;
 
 /**

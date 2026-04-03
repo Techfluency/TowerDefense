@@ -19,6 +19,9 @@ export interface EnvConfig {
 
   /** Base URL for Phaser asset loading. Can be overridden for CDN in production. */
   assetBaseUrl: string;
+
+  /** Optional fixed seed for reproducible game runs. Empty string means auto-generate. */
+  gameSeed: string;
 }
 
 /**
@@ -30,5 +33,6 @@ export function loadEnvConfig(): EnvConfig {
     gameVersion: import.meta.env.VITE_GAME_VERSION ?? '0.1.0',
     debug: import.meta.env.VITE_DEBUG === 'true',
     assetBaseUrl: import.meta.env.VITE_ASSET_BASE_URL ?? '/assets',
+    gameSeed: import.meta.env.VITE_GAME_SEED ?? '',
   };
 }

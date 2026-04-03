@@ -2,10 +2,11 @@
  * Gameplay scene -- the primary game scene where all action happens.
  *
  * This is the scene where the tower defense game plays out. It:
- * 1. Creates and initializes all game systems (BOLT-002 through BOLT-008).
+ * 1. Creates and initializes all game systems (registered by each bolt).
  * 2. Manages the GameState object that systems read and write.
- * 3. Calls update() on all systems each frame.
+ * 3. Calls update() on all systems each frame in priority order.
  * 4. Handles game-level events (pause, game over, win).
+ * 5. Initializes the seeded RNG for reproducible runs.
  *
  * Architecture pattern (Scene + Systems):
  * - This scene instantiates System classes in create().
@@ -13,25 +14,34 @@
  * - This scene calls each System's update(time, delta) in its update().
  * - Systems communicate via this scene's event emitter (this.events).
  * - No global singletons. All state flows through GameState or events.
- *
- * During scaffold, this scene is empty. BOLT-001 will add the first
- * systems (asset registry, object pool, config manager). Subsequent
- * bolts add their systems here following the same pattern.
  */
 import Phaser from 'phaser';
 import { SCENE_KEYS } from '../config/game-config';
 import type { GameState } from '../types/game-types';
+import type { EnvConfig } from '../config/env';
+import { ConfigManager } from '../utils/config-manager';
+import { PoolManager, DEFAULT_POOL_CONFIG } from '../utils/pool-manager';
+import { InputSystem } from '../systems/input-system';
+import type { BaseSystem } from '../systems/base-system';
 
 export class Gameplay extends Phaser.Scene {
   /**
    * The central game state for this run. Created fresh each time
    * the Gameplay scene starts (each "New Game").
-   *
-   * Systems read and modify this state. The HUD (BOLT-009) reads it
-   * for display. This is NOT a global -- it exists only while this
-   * scene is active.
    */
   private gameState!: GameState;
+
+  /** Typed config access for tower, enemy, wave, and projectile definitions. */
+  private configManager!: ConfigManager;
+
+  /** Object pools for enemies and projectiles. */
+  private poolManager!: PoolManager;
+
+  /** Seeded random number generator for reproducible runs. */
+  public rng!: Phaser.Math.RandomDataGenerator;
+
+  /** All active systems in priority-ordered update sequence. */
+  private systems: BaseSystem[] = [];
 
   constructor() {
     super({ key: SCENE_KEYS.GAMEPLAY });
@@ -39,27 +49,60 @@ export class Gameplay extends Phaser.Scene {
 
   /**
    * Phaser create lifecycle method.
-   * Initializes game state and all systems for a new run.
+   * Initializes game state, seeded RNG, config manager, pool manager,
+   * and all systems for a new run.
    */
   create(): void {
     this.gameState = this.createInitialGameState();
 
-    /* --- System Initialization ---
-     * Engineering bolts will add system instantiation here.
-     *
-     * Pattern for future bolts:
-     *   this.mapSystem = new MapGeneratorSystem(this, this.gameState);
-     *   this.enemySystem = new EnemySystem(this, this.gameState);
-     *   this.waveSystem = new WaveSystem(this, this.gameState);
-     *   this.towerCombatSystem = new TowerCombatSystem(this, this.gameState);
-     *   this.economySystem = new EconomySystem(this, this.gameState);
-     *
-     * Each system's constructor registers its event listeners and
-     * initializes its internal state. */
+    /* --- Seeded RNG ---
+     * Initialize from env config seed or auto-generate one.
+     * All randomness must flow through this.rng, never Math.random(). */
+    this.rng = new Phaser.Math.RandomDataGenerator([this.gameState.gameSeed]);
 
-    /* --- Event Listeners ---
-     * Scene-level event listeners for game state transitions.
-     * Systems emit these events; the scene handles the state machine. */
+    /* --- Config Manager ---
+     * Reads JSON data from Phaser cache (loaded in Preload). */
+    this.configManager = new ConfigManager(this);
+
+    /* --- Pool Manager ---
+     * Pre-allocates enemy and projectile sprite pools. */
+    this.poolManager = new PoolManager(this, DEFAULT_POOL_CONFIG);
+
+    /* --- Store references on registry for DebugOverlay access ---
+     * The DebugOverlay scene runs in parallel and reads these. */
+    this.registry.set('poolManager', this.poolManager);
+    this.registry.set('gameState', this.gameState);
+    this.registry.set('configManager', this.configManager);
+
+    /* --- System Initialization ---
+     * Systems are created in priority order. After all are constructed,
+     * init() is called on each so event listeners can reference any system.
+     *
+     * BOLT-001: Only InputSystem is registered.
+     * Future bolts add their systems to this array at the correct priority. */
+    const inputSystem = new InputSystem(this, this.gameState);
+
+    this.systems = [
+      inputSystem,
+      /* Priority 1: WaveSystem (BOLT-004) */
+      /* Priority 2: EnemySystem (BOLT-003) */
+      /* Priority 3: TowerCombatSystem (BOLT-006) */
+      /* Priority 4: ProjectileSystem (BOLT-006) */
+      /* Priority 5: EconomySystem (BOLT-008) */
+      /* Priority 6: UpgradeSystem (BOLT-007) */
+    ];
+
+    /* Call init() on each system after all are constructed.
+     * Separate from constructor so all systems exist before any wires listeners. */
+    for (const system of this.systems) {
+      system.init();
+    }
+
+    /* --- Shutdown Handler ---
+     * Phaser's scene.start() stops the current scene but does NOT destroy it.
+     * We must explicitly clean up systems on the 'shutdown' event to prevent
+     * ghost listeners and memory leaks across scene restarts. */
+    this.events.on('shutdown', this.handleShutdown, this);
   }
 
   /**
@@ -75,22 +118,33 @@ export class Gameplay extends Phaser.Scene {
       return;
     }
 
-    /* --- System Updates ---
-     * Engineering bolts will add system update calls here.
-     *
-     * Pattern for future bolts:
-     *   this.enemySystem.update(time, delta);
-     *   this.waveSystem.update(time, delta);
-     *   this.towerCombatSystem.update(time, delta);
-     *
-     * Update order matters: enemies move before towers check targeting,
-     * so towers always shoot at current positions, not stale ones.
-     * The exact order is an engineering decision made in BOLT-001. */
+    /* Update all systems in priority order. */
+    for (const system of this.systems) {
+      system.update(time, delta);
+    }
+  }
 
-    /* Suppress unused parameter warnings during scaffold.
-     * Remove these lines when systems are added. */
-    void time;
-    void delta;
+  /**
+   * Handles scene shutdown: destroys all systems in reverse order,
+   * cleans up pools, and clears registry references.
+   */
+  private handleShutdown(): void {
+    /* Destroy systems in reverse order (opposite of init order). */
+    for (let i = this.systems.length - 1; i >= 0; i--) {
+      this.systems[i]!.destroy();
+    }
+    this.systems = [];
+
+    /* Destroy pools to free sprite memory. */
+    this.poolManager.destroyAll();
+
+    /* Clear registry references to prevent stale data in DebugOverlay. */
+    this.registry.remove('poolManager');
+    this.registry.remove('gameState');
+    this.registry.remove('configManager');
+
+    /* Remove shutdown listener to prevent double-firing on next create(). */
+    this.events.off('shutdown', this.handleShutdown, this);
   }
 
   /**
@@ -100,6 +154,11 @@ export class Gameplay extends Phaser.Scene {
    * @returns A fresh GameState with starting values.
    */
   private createInitialGameState(): GameState {
+    const envConfig = this.registry.get('envConfig') as EnvConfig;
+
+    /* Use env seed if provided, otherwise generate one from timestamp. */
+    const seed = envConfig.gameSeed || Date.now().toString();
+
     return {
       currency: 100,
       score: 0,
@@ -109,7 +168,7 @@ export class Gameplay extends Phaser.Scene {
       maxObjectiveHp: 20,
       isPaused: false,
       isGameOver: false,
-      mapSeed: Date.now().toString(),
+      gameSeed: seed,
     };
   }
 }

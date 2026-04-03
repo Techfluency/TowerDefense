@@ -40,6 +40,12 @@ export class Boot extends Phaser.Scene {
       this.physics.world.drawDebug = true;
     }
 
+    /* Launch debug overlay as a parallel scene if debug mode is on.
+     * Uses launch (not start) so it runs alongside other scenes. */
+    if (envConfig.debug) {
+      this.scene.launch(SCENE_KEYS.DEBUG_OVERLAY);
+    }
+
     /* Transition to the Preload scene, which loads all game assets. */
     this.scene.start(SCENE_KEYS.PRELOAD);
   }
