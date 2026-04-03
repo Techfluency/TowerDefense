@@ -91,11 +91,13 @@ export const ASSET_MANIFEST: AssetManifest = {
   ],
 
   json: [
-    /* Game config JSON files loaded at runtime by Phaser's loader. */
-    { key: 'config-towers', path: '../data/towers.json' },
-    { key: 'config-enemies', path: '../data/enemies.json' },
-    { key: 'config-waves', path: '../data/waves.json' },
-    { key: 'config-projectiles', path: '../data/projectiles.json' },
+    /* Game config JSON files loaded at runtime by Phaser's loader.
+     * Paths are absolute from the web root -- files live in public/data/
+     * so Vite serves them as static assets. */
+    { key: 'config-towers', path: '/data/towers.json' },
+    { key: 'config-enemies', path: '/data/enemies.json' },
+    { key: 'config-waves', path: '/data/waves.json' },
+    { key: 'config-projectiles', path: '/data/projectiles.json' },
   ],
 
   tilemaps: [

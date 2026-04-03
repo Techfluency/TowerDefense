@@ -2,7 +2,7 @@
  * Build-time config validation script.
  *
  * Runs under Node.js via tsx before TypeScript compilation. Reads JSON
- * config files from src/data/ and validates their shape against the
+ * config files from public/data/ and validates their shape against the
  * expected interfaces. Fails the build with descriptive errors if any
  * required field is missing or has the wrong type.
  *
@@ -17,14 +17,15 @@ import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const DATA_DIR = resolve(__dirname, '..', 'data');
+/* JSON configs live in public/data/ (served as static assets by Vite). */
+const DATA_DIR = resolve(__dirname, '..', '..', 'public', 'data');
 
 let errors: string[] = [];
 
 /**
  * Reads and parses a JSON file from the data directory.
  *
- * @param fileName - Name of the JSON file in src/data/.
+ * @param fileName - Name of the JSON file in public/data/.
  * @returns Parsed JSON content or null if the file cannot be read.
  */
 function loadJson(fileName: string): unknown[] | null {
