@@ -26,7 +26,7 @@ export default defineConfig({
   server: {
     /* Bind to all interfaces so the Docker container can expose the port. */
     host: '0.0.0.0',
-    port: 5173,
+    port: 4729,
   },
 
   build: {

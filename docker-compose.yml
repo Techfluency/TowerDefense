@@ -6,7 +6,7 @@
 # cache -- the game runs entirely in the browser.
 #
 # Usage:
-#   docker compose up          -- start dev server at http://localhost:5173
+#   docker compose up          -- start dev server at http://localhost:4729
 #   docker compose down        -- stop
 #   docker compose build       -- rebuild after Dockerfile changes
 # ---------------------------------------------------------------
@@ -20,7 +20,7 @@ services:
     # Override the build CMD to run the dev server instead.
     command: pnpm run dev
     ports:
-      - "5173:5173"
+      - "4729:4729"
     volumes:
       # Mount source code for live reloading via Vite HMR.
       - .:/app
