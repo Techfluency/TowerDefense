@@ -66,9 +66,12 @@ export const ASSET_MANIFEST: AssetManifest = {
     { key: 'tower-ranged', path: 'sprites/tower-ranged.png' },
     { key: 'tower-focused', path: 'sprites/tower-focused.png' },
 
-    /* Enemy placeholder sprites (red variants). */
+    /* Enemy placeholder sprites -- distinct colors and sizes per archetype. */
     { key: 'enemy-runner', path: 'sprites/enemy-runner.png' },
     { key: 'enemy-tank', path: 'sprites/enemy-tank.png' },
+    { key: 'enemy-fast', path: 'sprites/enemy-fast.png' },
+    { key: 'enemy-flyer', path: 'sprites/enemy-flyer.png' },
+    { key: 'enemy-swarm', path: 'sprites/enemy-swarm.png' },
 
     /* Projectile placeholder sprites (yellow variants). */
     { key: 'projectile-arrow', path: 'sprites/projectile-arrow.png' },

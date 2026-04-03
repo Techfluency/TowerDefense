@@ -48,6 +48,22 @@ export interface EnemyReachedObjectivePayload {
 }
 
 /**
+ * Payload for ENEMY_SPAWNED event.
+ * Emitted by BOLT-003 (Enemy System) when a new enemy is spawned on the field.
+ * Listened by BOLT-004 (Wave System) for wave enemy count tracking.
+ */
+export interface EnemySpawnedPayload {
+  /** Unique instance ID of the spawned enemy (e.g., "enemy-42"). */
+  enemyId: string;
+  /** References EnemyDefinition.id (e.g., "runner"). */
+  enemyType: string;
+  /** World-space pixel coordinates where the enemy spawned. */
+  position: { x: number; y: number };
+  /** The wave number this enemy belongs to. */
+  waveNumber: number;
+}
+
+/**
  * Payload for ENEMY_DAMAGED event.
  * Emitted by BOLT-006 (Tower Combat) when a projectile hits an enemy.
  * Listened by BOLT-003 (HP update).

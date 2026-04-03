@@ -2,25 +2,66 @@
   {
     "id": "runner",
     "name": "Runner",
-    "baseHp": 30,
-    "baseSpeed": 120,
+    "baseHp": 50,
+    "baseSpeed": 80,
     "armor": 0,
-    "breakthroughDamage": 1,
+    "breakthroughDamage": 10,
     "currencyReward": 5,
     "scoreReward": 10,
     "movementType": "ground",
-    "spriteKey": "enemy-runner"
+    "spriteKey": "enemy-runner",
+    "damageTypeMultipliers": {}
   },
   {
     "id": "tank",
     "name": "Tank",
-    "baseHp": 100,
-    "baseSpeed": 60,
-    "armor": 3,
-    "breakthroughDamage": 3,
+    "baseHp": 200,
+    "baseSpeed": 45,
+    "armor": 5,
+    "breakthroughDamage": 25,
     "currencyReward": 15,
     "scoreReward": 25,
     "movementType": "ground",
-    "spriteKey": "enemy-tank"
+    "spriteKey": "enemy-tank",
+    "damageTypeMultipliers": {}
+  },
+  {
+    "id": "fast",
+    "name": "Fast Scout",
+    "baseHp": 30,
+    "baseSpeed": 140,
+    "armor": 0,
+    "breakthroughDamage": 10,
+    "currencyReward": 8,
+    "scoreReward": 15,
+    "movementType": "ground",
+    "spriteKey": "enemy-fast",
+    "damageTypeMultipliers": {}
+  },
+  {
+    "id": "flyer",
+    "name": "Sky Drone",
+    "baseHp": 40,
+    "baseSpeed": 70,
+    "armor": 0,
+    "breakthroughDamage": 15,
+    "currencyReward": 10,
+    "scoreReward": 20,
+    "movementType": "flying",
+    "spriteKey": "enemy-flyer",
+    "damageTypeMultipliers": {}
+  },
+  {
+    "id": "swarm",
+    "name": "Swarm Bug",
+    "baseHp": 15,
+    "baseSpeed": 100,
+    "armor": 0,
+    "breakthroughDamage": 5,
+    "currencyReward": 3,
+    "scoreReward": 5,
+    "movementType": "ground",
+    "spriteKey": "enemy-swarm",
+    "damageTypeMultipliers": {}
   }
 ]

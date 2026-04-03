@@ -89,6 +89,12 @@ export interface EnemyDefinition {
   movementType: MovementType;
   /** Sprite key for the Phaser asset loader. */
   spriteKey: string;
+  /**
+   * Per-damage-type multipliers. Keys are damage type strings (e.g., "physical",
+   * "explosive", "energy"). Values are multipliers applied before armor reduction.
+   * Absent or empty = all types deal 1.0x damage. Phase 1 ships all at 1.0.
+   */
+  damageTypeMultipliers?: Record<string, number>;
 }
 
 // ---------------------------------------------------------------------------
@@ -319,6 +325,8 @@ export const GAME_EVENTS = {
   INPUT_CANCEL: 'INPUT_CANCEL',
   /** Emitted by BOLT-002 MapGeneratorSystem when map generation completes. Listened by MapRendererSystem, BOLT-003, BOLT-004, BOLT-005. */
   MAP_READY: 'MAP_READY',
+  /** Emitted by BOLT-003 EnemySystem when an enemy is spawned. Listened by BOLT-004 (wave tracking). */
+  ENEMY_SPAWNED: 'ENEMY_SPAWNED',
 } as const;
 
 /**

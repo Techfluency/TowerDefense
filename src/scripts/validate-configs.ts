@@ -116,6 +116,22 @@ if (enemies) {
     requireField(e, 'movementType', 'string', 'enemies.json', i);
     requireField(e, 'spriteKey', 'string', 'enemies.json', i);
 
+    /* Optional damageTypeMultipliers: if present, must be an object with numeric values. */
+    if ('damageTypeMultipliers' in e && e.damageTypeMultipliers != null) {
+      if (typeof e.damageTypeMultipliers !== 'object' || Array.isArray(e.damageTypeMultipliers)) {
+        errors.push(`enemies.json[${i}]: "damageTypeMultipliers" must be an object`);
+      } else {
+        const multipliers = e.damageTypeMultipliers as Record<string, unknown>;
+        for (const [key, val] of Object.entries(multipliers)) {
+          if (typeof val !== 'number') {
+            errors.push(
+              `enemies.json[${i}]: damageTypeMultipliers["${key}"] expected number, got ${typeof val}`,
+            );
+          }
+        }
+      }
+    }
+
     const id = e.id as string;
     if (seenIds.has(id)) {
       errors.push(`enemies.json[${i}]: duplicate id "${id}"`);
