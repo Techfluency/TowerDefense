@@ -71,6 +71,16 @@ const mockProjectiles: ProjectileDefinition[] = [
   { id: 'arrow', speed: 400, splashRadius: 0, spriteKey: 'projectile-arrow' },
 ];
 
+const mockMapConfig = {
+  cols: 20,
+  rows: 11,
+  tileSize: 64,
+  minPathLength: 20,
+  maxStraightTiles: 3,
+  maxRetries: 50,
+  complexityRange: [1, 10],
+};
+
 /**
  * Creates a mock Phaser scene with a fake JSON cache.
  * The cache returns the provided data for the matching cache key.
@@ -95,6 +105,7 @@ describe('ConfigManager', () => {
       'config-enemies': mockEnemies,
       'config-waves': mockWaves,
       'config-projectiles': mockProjectiles,
+      'config-map': mockMapConfig,
     });
     configManager = new ConfigManager(mockScene);
   });

@@ -250,6 +250,27 @@ export interface GameOverPayload {
 }
 
 // ---------------------------------------------------------------------------
+// Map Events
+// ---------------------------------------------------------------------------
+
+/**
+ * Payload for MAP_READY event.
+ * Emitted by BOLT-002 MapGeneratorSystem after map generation completes.
+ * Listened by MapRendererSystem (tile rendering), and future
+ * BOLT-003 (enemy pathing), BOLT-004 (wave spawning), BOLT-005 (placement).
+ */
+export interface MapReadyPayload {
+  /** Number of tile columns in the generated grid. */
+  cols: number;
+  /** Number of tile rows in the generated grid. */
+  rows: number;
+  /** Number of tiles in the generated path (waypoint count). */
+  pathLength: number;
+  /** The seed used for this map generation. */
+  seed: string;
+}
+
+// ---------------------------------------------------------------------------
 // Input Events
 // ---------------------------------------------------------------------------
 

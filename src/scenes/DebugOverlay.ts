@@ -14,6 +14,7 @@ import Phaser from 'phaser';
 import { GAME_WIDTH } from '../config/game-config';
 import type { PoolManager } from '../utils/pool-manager';
 import type { GameState } from '../types/game-types';
+import type { MapData } from '../data/map-data';
 import { TARGET_FPS } from '../config/performance-budget';
 
 /** Scene key for the debug overlay. */
@@ -29,6 +30,7 @@ export class DebugOverlay extends Phaser.Scene {
   private fpsText!: Phaser.GameObjects.Text;
   private entityText!: Phaser.GameObjects.Text;
   private seedText!: Phaser.GameObjects.Text;
+  private mapText!: Phaser.GameObjects.Text;
   private lastUpdateTime = 0;
 
   constructor() {
@@ -51,7 +53,7 @@ export class DebugOverlay extends Phaser.Scene {
     /* Semi-transparent background for readability. */
     const bg = this.add.graphics();
     bg.fillStyle(0x000000, 0.5);
-    bg.fillRect(GAME_WIDTH - 220, 0, 220, 65);
+    bg.fillRect(GAME_WIDTH - 220, 0, 220, 83);
     bg.setDepth(998);
 
     /* FPS counter -- updated every second, turns red below threshold. */
@@ -69,6 +71,12 @@ export class DebugOverlay extends Phaser.Scene {
     /* Game seed for reproducibility debugging. */
     this.seedText = this.add
       .text(x, padding + 36, 'Seed: ---', textStyle)
+      .setOrigin(1, 0)
+      .setDepth(999);
+
+    /* Map info: path length and spawn/objective coordinates. */
+    this.mapText = this.add
+      .text(x, padding + 54, 'Map: ---', textStyle)
       .setOrigin(1, 0)
       .setDepth(999);
   }
@@ -105,6 +113,16 @@ export class DebugOverlay extends Phaser.Scene {
     const gameState = this.registry.get('gameState') as GameState | undefined;
     if (gameState) {
       this.seedText.setText(`Seed: ${gameState.gameSeed}`);
+    }
+
+    /* Read map data for path length and spawn/objective info. */
+    const mapData = this.registry.get('mapData') as MapData | undefined;
+    if (mapData) {
+      const spawn = mapData.getSpawnPoint();
+      const obj = mapData.getObjectivePoint();
+      this.mapText.setText(
+        `Path: ${mapData.getPathLength()} | S(${spawn.col},${spawn.row}) O(${obj.col},${obj.row})`,
+      );
     }
   }
 }

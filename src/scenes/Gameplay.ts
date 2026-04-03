@@ -22,6 +22,8 @@ import type { EnvConfig } from '../config/env';
 import { ConfigManager } from '../utils/config-manager';
 import { PoolManager, DEFAULT_POOL_CONFIG } from '../utils/pool-manager';
 import { InputSystem } from '../systems/input-system';
+import { MapGeneratorSystem } from '../systems/map-generator-system';
+import { MapRendererSystem } from '../systems/map-renderer-system';
 import type { BaseSystem } from '../systems/base-system';
 
 export class Gameplay extends Phaser.Scene {
@@ -78,11 +80,15 @@ export class Gameplay extends Phaser.Scene {
      * Systems are created in priority order. After all are constructed,
      * init() is called on each so event listeners can reference any system.
      *
-     * BOLT-001: Only InputSystem is registered.
-     * Future bolts add their systems to this array at the correct priority. */
+     * Map systems run first: generator produces data, renderer draws tiles.
+     * Both must complete before any gameplay system queries map data. */
+    const mapGenerator = new MapGeneratorSystem(this, this.gameState, this.rng, this.configManager);
+    const mapRenderer = new MapRendererSystem(this, this.gameState);
     const inputSystem = new InputSystem(this, this.gameState);
 
     this.systems = [
+      mapGenerator,
+      mapRenderer,
       inputSystem,
       /* Priority 1: WaveSystem (BOLT-004) */
       /* Priority 2: EnemySystem (BOLT-003) */
@@ -138,7 +144,8 @@ export class Gameplay extends Phaser.Scene {
     /* Destroy pools to free sprite memory. */
     this.poolManager.destroyAll();
 
-    /* Clear registry references to prevent stale data in DebugOverlay. */
+    /* Clear registry references to prevent stale data in DebugOverlay.
+     * Note: 'mapData' is removed by MapGeneratorSystem.destroy() above. */
     this.registry.remove('poolManager');
     this.registry.remove('gameState');
     this.registry.remove('configManager');

@@ -171,6 +171,43 @@ if (projectiles) {
 }
 
 // ---------------------------------------------------------------------------
+// Validate map-config.json
+// ---------------------------------------------------------------------------
+const mapConfigPath = resolve(DATA_DIR, 'map-config.json');
+try {
+  const mapContent = readFileSync(mapConfigPath, 'utf-8');
+  const mapConfig = JSON.parse(mapContent) as Record<string, unknown>;
+
+  const requiredNumberFields = ['cols', 'rows', 'tileSize', 'minPathLength', 'maxStraightTiles', 'maxRetries'];
+  for (const field of requiredNumberFields) {
+    if (!(field in mapConfig)) {
+      errors.push(`map-config.json: missing required field "${field}"`);
+    } else if (typeof mapConfig[field] !== 'number') {
+      errors.push(`map-config.json: field "${field}" expected number, got ${typeof mapConfig[field]}`);
+    }
+  }
+
+  if (!('complexityRange' in mapConfig) || !Array.isArray(mapConfig.complexityRange)) {
+    errors.push('map-config.json: missing or invalid "complexityRange" array');
+  } else {
+    const range = mapConfig.complexityRange as unknown[];
+    if (range.length !== 2 || typeof range[0] !== 'number' || typeof range[1] !== 'number') {
+      errors.push('map-config.json: "complexityRange" must be [number, number]');
+    }
+  }
+
+  /* Validate constraints. */
+  if (typeof mapConfig.minPathLength === 'number' && mapConfig.minPathLength < 20) {
+    errors.push('map-config.json: "minPathLength" must be >= 20');
+  }
+  if (typeof mapConfig.maxRetries === 'number' && mapConfig.maxRetries < 10) {
+    errors.push('map-config.json: "maxRetries" must be >= 10');
+  }
+} catch (err) {
+  errors.push(`map-config.json: failed to read or parse -- ${String(err)}`);
+}
+
+// ---------------------------------------------------------------------------
 // Check for sprite key collisions across all configs
 // ---------------------------------------------------------------------------
 const allSpriteKeys: Array<{ key: string; source: string }> = [];

@@ -1,0 +1,9 @@
+{
+  "cols": 20,
+  "rows": 11,
+  "tileSize": 64,
+  "minPathLength": 20,
+  "maxStraightTiles": 3,
+  "maxRetries": 50,
+  "complexityRange": [1, 10]
+}

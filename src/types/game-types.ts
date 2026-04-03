@@ -178,6 +178,47 @@ export interface UpgradeDefinition {
 export type TileType = 'path' | 'buildable' | 'blocked' | 'spawn' | 'objective';
 
 /**
+ * A point on the map grid with both grid and world coordinates.
+ * Grid coordinates identify the tile. World coordinates identify the
+ * pixel-space center of that tile for positioning sprites and entities.
+ *
+ * Used by BOLT-003 (enemy positioning), BOLT-004 (spawn placement),
+ * and BOLT-005 (placement validation).
+ */
+export interface GridPoint {
+  /** Grid column index (0 = left edge). */
+  col: number;
+  /** Grid row index (0 = top edge). */
+  row: number;
+  /** World-space X pixel coordinate at the center of this tile. */
+  worldX: number;
+  /** World-space Y pixel coordinate at the center of this tile. */
+  worldY: number;
+}
+
+/**
+ * Map generation configuration loaded from map-config.json.
+ * Controls grid dimensions, path constraints, and retry behavior.
+ * Read by MapGeneratorSystem via ConfigManager.
+ */
+export interface MapConfigDefinition {
+  /** Number of tile columns in the grid. */
+  cols: number;
+  /** Number of tile rows in the grid. */
+  rows: number;
+  /** Pixel size of each tile (must match TILE_SIZE from performance-budget). */
+  tileSize: number;
+  /** Minimum number of tiles in the generated path. */
+  minPathLength: number;
+  /** Maximum consecutive tiles in the same direction before a forced turn. */
+  maxStraightTiles: number;
+  /** Maximum generation attempts before reporting an error. */
+  maxRetries: number;
+  /** Valid range for the complexity parameter [min, max]. */
+  complexityRange: [number, number];
+}
+
+/**
  * A single cell in the map grid. The map generator (BOLT-002) produces a 2D
  * array of these. The placement system (BOLT-005) reads tileType to validate
  * tower placement. The renderer draws tiles based on tileType and biome.
@@ -276,6 +317,8 @@ export const GAME_EVENTS = {
   TILE_HOVER_CHANGED: 'TILE_HOVER_CHANGED',
   /** Emitted by BOLT-001 InputSystem on Escape/right-click. Listened by BOLT-005. */
   INPUT_CANCEL: 'INPUT_CANCEL',
+  /** Emitted by BOLT-002 MapGeneratorSystem when map generation completes. Listened by MapRendererSystem, BOLT-003, BOLT-004, BOLT-005. */
+  MAP_READY: 'MAP_READY',
 } as const;
 
 /**

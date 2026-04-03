@@ -15,6 +15,7 @@ import type {
   EnemyDefinition,
   WaveDefinition,
   ProjectileDefinition,
+  MapConfigDefinition,
 } from '../types/game-types';
 
 /** Cache keys matching what the Preload scene uses when loading JSON files. */
@@ -23,6 +24,7 @@ const CACHE_KEYS = {
   ENEMIES: 'config-enemies',
   WAVES: 'config-waves',
   PROJECTILES: 'config-projectiles',
+  MAP: 'config-map',
 } as const;
 
 export class ConfigManager {
@@ -37,6 +39,9 @@ export class ConfigManager {
 
   /** Indexed projectile definitions for O(1) lookup by id. */
   private readonly projectiles: Map<string, ProjectileDefinition>;
+
+  /** Map generation configuration (single object, not an array). */
+  private readonly mapConfig: MapConfigDefinition;
 
   /**
    * Reads all config data from the Phaser cache. Call this after the
@@ -55,6 +60,9 @@ export class ConfigManager {
     this.waves = this.loadFromCache(scene, CACHE_KEYS.WAVES, 'waves.json');
     this.projectiles = this.indexById<ProjectileDefinition>(
       this.loadFromCache(scene, CACHE_KEYS.PROJECTILES, 'projectiles.json'),
+    );
+    this.mapConfig = this.loadObjectFromCache<MapConfigDefinition>(
+      scene, CACHE_KEYS.MAP, 'map-config.json',
     );
   }
 
@@ -131,6 +139,23 @@ export class ConfigManager {
   }
 
   /**
+   * Returns the map generation configuration.
+   * Unlike other configs, map-config.json is a single object, not an array.
+   *
+   * @returns The map configuration definition.
+   * @throws Error if the config is not in the cache.
+   */
+  getMapConfig(): MapConfigDefinition {
+    const data = this.mapConfig;
+    if (!data) {
+      throw new Error(
+        'ConfigManager: map config not loaded. Ensure map-config.json is in the asset manifest.',
+      );
+    }
+    return data;
+  }
+
+  /**
    * Reads a JSON array from the Phaser cache.
    *
    * @param scene - Active Phaser scene for cache access.
@@ -140,6 +165,26 @@ export class ConfigManager {
    */
   private loadFromCache<T>(scene: Phaser.Scene, cacheKey: string, fileName: string): T[] {
     const data = scene.cache.json.get(cacheKey) as T[] | undefined;
+    if (!data) {
+      throw new Error(
+        `ConfigManager: "${fileName}" not found in cache (key: "${cacheKey}"). ` +
+        'Ensure it is loaded in the Preload scene.',
+      );
+    }
+    return data;
+  }
+
+  /**
+   * Reads a single JSON object from the Phaser cache.
+   * Used for configs that are objects (not arrays), like map-config.json.
+   *
+   * @param scene - Active Phaser scene for cache access.
+   * @param cacheKey - Key used when the JSON was loaded in Preload.
+   * @param fileName - Original file name for error messages.
+   * @returns The parsed JSON object.
+   */
+  private loadObjectFromCache<T>(scene: Phaser.Scene, cacheKey: string, fileName: string): T {
+    const data = scene.cache.json.get(cacheKey) as T | undefined;
     if (!data) {
       throw new Error(
         `ConfigManager: "${fileName}" not found in cache (key: "${cacheKey}"). ` +
