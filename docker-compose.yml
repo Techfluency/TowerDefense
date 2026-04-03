@@ -1,0 +1,36 @@
+# ---------------------------------------------------------------
+# Tower Defense Game -- Docker Compose
+# ---------------------------------------------------------------
+# This game has no backend services. The single service runs the
+# Vite dev server for local development. No database, no API, no
+# cache -- the game runs entirely in the browser.
+#
+# Usage:
+#   docker compose up          -- start dev server at http://localhost:5173
+#   docker compose down        -- stop
+#   docker compose build       -- rebuild after Dockerfile changes
+# ---------------------------------------------------------------
+
+services:
+  game-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: build
+    # Override the build CMD to run the dev server instead.
+    command: pnpm run dev
+    ports:
+      - "5173:5173"
+    volumes:
+      # Mount source code for live reloading via Vite HMR.
+      - .:/app
+      # Named volume for node_modules prevents the host's node_modules
+      # from overwriting the container's. This avoids platform-specific
+      # binary mismatches (e.g., esbuild linux vs. windows binaries).
+      - node_modules:/app/node_modules
+    environment:
+      - VITE_DEBUG=true
+      - VITE_GAME_VERSION=0.1.0-dev
+
+volumes:
+  node_modules:

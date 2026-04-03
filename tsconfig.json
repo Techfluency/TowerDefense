@@ -1,0 +1,50 @@
+{
+  "compilerOptions": {
+    /* --- Language & Environment --- */
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    /* ScriptHost is included because Phaser 3's type definitions reference
+     * ActiveXObject (a legacy IE API). Without this lib, tsc fails on
+     * Phaser's own d.ts file. This does NOT affect the runtime bundle. */
+    "lib": ["ES2022", "DOM", "DOM.Iterable", "ScriptHost"],
+
+    /* --- Strict Type Checking ---
+     * All strict flags enabled. This is critical for a game with 9
+     * interconnected systems -- type mismatches between enemy stats,
+     * tower targeting, wave composition, and economy events must be
+     * caught at compile time, not at runtime during a wave 18 playtest.
+     */
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "forceConsistentCasingInFileNames": true,
+    "exactOptionalPropertyTypes": false,
+
+    /* --- Emit --- */
+    "outDir": "dist",
+    "sourceMap": true,
+    "declaration": false,
+
+    /* --- Module Interop ---
+     * esModuleInterop is required for importing Phaser, which uses
+     * a CommonJS-style default export internally but ships ESM types.
+     */
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "isolatedModules": true,
+    "resolveJsonModule": true,
+
+    /* --- Path Aliases ---
+     * Not used initially. If the project grows, path aliases like
+     * @systems/, @entities/ can be added here and mirrored in
+     * vite.config.ts resolve.alias.
+     */
+    "baseUrl": ".",
+    "paths": {}
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": ["node_modules", "dist", "tests"]
+}

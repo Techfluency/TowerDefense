@@ -1,0 +1,9 @@
+# Files that should not be copied into the Docker build context.
+# Keeps the image small and avoids leaking environment files.
+node_modules
+dist
+.git
+.env
+.env.local
+coverage
+*.log

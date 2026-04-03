@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Random Gen Tower Defense</title>
+    <style>
+      /* Remove all margin/padding so the Phaser canvas fills the viewport.
+       * Background is black to match the game's default clear color and
+       * prevent a white flash on load. */
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      body {
+        background-color: #000000;
+        overflow: hidden;
+      }
+      #game-container {
+        width: 100vw;
+        height: 100vh;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+      }
+    </style>
+  </head>
+  <body>
+    <!--
+      Phaser appends its canvas element to this container.
+      The container is centered in the viewport so the game
+      canvas appears centered regardless of window size.
+    -->
+    <div id="game-container"></div>
+
+    <!-- Vite injects the bundled entry point here. -->
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

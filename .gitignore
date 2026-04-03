@@ -1,0 +1,32 @@
+# --- Build output ---
+dist/
+
+# --- Dependencies ---
+node_modules/
+
+# --- Environment ---
+# .env contains local overrides; .env.example is committed.
+.env
+.env.local
+.env.*.local
+
+# --- Editor / OS ---
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# --- Logs ---
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# --- Test coverage ---
+coverage/
+
+# --- Vite ---
+*.local
