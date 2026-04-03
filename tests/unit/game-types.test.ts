@@ -44,10 +44,13 @@ describe('GAME_EVENTS', () => {
     expect(uniqueValues.size).toBe(values.length);
   });
 
-  it('should have exactly 19 events defined', () => {
-    /* This count ensures we do not accidentally add or remove events
-     * without updating the test. 12 original + 6 added by BOLT-001 + 1 by BOLT-002. */
-    expect(Object.keys(GAME_EVENTS).length).toBe(19);
+  it('should define BOLT-003 enemy spawned event', () => {
+    expect(GAME_EVENTS.ENEMY_SPAWNED).toBe('ENEMY_SPAWNED');
+  });
+
+  it('should have exactly 20 events defined', () => {
+    /* 12 original + 6 BOLT-001 + 1 BOLT-002 + 1 BOLT-003 (ENEMY_SPAWNED). */
+    expect(Object.keys(GAME_EVENTS).length).toBe(20);
   });
 
   it('should use SUBJECT_ACTION naming pattern', () => {

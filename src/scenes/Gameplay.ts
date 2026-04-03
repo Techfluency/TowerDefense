@@ -24,6 +24,7 @@ import { PoolManager, DEFAULT_POOL_CONFIG } from '../utils/pool-manager';
 import { InputSystem } from '../systems/input-system';
 import { MapGeneratorSystem } from '../systems/map-generator-system';
 import { MapRendererSystem } from '../systems/map-renderer-system';
+import { EnemySystem } from '../systems/enemy-system';
 import type { BaseSystem } from '../systems/base-system';
 
 export class Gameplay extends Phaser.Scene {
@@ -86,17 +87,25 @@ export class Gameplay extends Phaser.Scene {
     const mapRenderer = new MapRendererSystem(this, this.gameState);
     const inputSystem = new InputSystem(this, this.gameState);
 
+    /* Priority 2: Enemy system -- manages all active enemies on the field.
+     * Must update after input but before tower combat so towers target
+     * enemies at their current-frame positions. */
+    const enemySystem = new EnemySystem(this, this.gameState, this.poolManager, this.configManager);
+
     this.systems = [
       mapGenerator,
       mapRenderer,
       inputSystem,
       /* Priority 1: WaveSystem (BOLT-004) */
-      /* Priority 2: EnemySystem (BOLT-003) */
+      enemySystem, /* Priority 2: EnemySystem (BOLT-003) */
       /* Priority 3: TowerCombatSystem (BOLT-006) */
       /* Priority 4: ProjectileSystem (BOLT-006) */
       /* Priority 5: EconomySystem (BOLT-008) */
       /* Priority 6: UpgradeSystem (BOLT-007) */
     ];
+
+    /* Store enemySystem on registry for cross-system access (BOLT-004, BOLT-006). */
+    this.registry.set('enemySystem', enemySystem);
 
     /* Call init() on each system after all are constructed.
      * Separate from constructor so all systems exist before any wires listeners. */
@@ -149,6 +158,7 @@ export class Gameplay extends Phaser.Scene {
     this.registry.remove('poolManager');
     this.registry.remove('gameState');
     this.registry.remove('configManager');
+    this.registry.remove('enemySystem');
 
     /* Remove shutdown listener to prevent double-firing on next create(). */
     this.events.off('shutdown', this.handleShutdown, this);
@@ -171,8 +181,8 @@ export class Gameplay extends Phaser.Scene {
       score: 0,
       currentWave: 0,
       totalWaves: 20,
-      objectiveHp: 20,
-      maxObjectiveHp: 20,
+      objectiveHp: 100,
+      maxObjectiveHp: 100,
       isPaused: false,
       isGameOver: false,
       gameSeed: seed,
