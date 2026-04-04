@@ -15,7 +15,7 @@ import {
   AutoTileSystem,
 } from '../../src/systems/auto-tile-system';
 import { GAME_EVENTS, REGISTRY_KEYS } from '../../src/types/game-types';
-import type { GameState, TileType } from '../../src/types/game-types';
+import type { GameState, TileType, GridPoint } from '../../src/types/game-types';
 import type { AutoTileReadyPayload } from '../../src/types/events';
 
 // ---------------------------------------------------------------------------
@@ -80,9 +80,48 @@ function createMockGameState(): GameState {
  * Builds a simple MapData-like object for testing.
  * The grid is a 2D array of TileTypes. getTileType returns null for OOB.
  */
+/**
+ * Builds a simple MapData-like object for testing.
+ * The grid is a 2D array of TileTypes. getTileType returns null for OOB.
+ * BOLT-012 requires getWaypoints/getSpawnPoint/getObjectivePoint, so
+ * this helper auto-generates a minimal waypoint list by scanning the grid
+ * for spawn and objective tiles and including any path tiles in row order.
+ */
 function createMockMapData(grid: TileType[][], seed = 'test-seed') {
   const rows = grid.length;
   const cols = grid[0]?.length ?? 0;
+
+  // Build a waypoint list from any spawn/path/objective tiles found in the grid.
+  // BOLT-012 resolveSpawnAndObjective calls getWaypoints/getSpawnPoint/getObjectivePoint.
+  const waypoints: GridPoint[] = [];
+  let spawnPt: GridPoint | null = null;
+  let objectivePt: GridPoint | null = null;
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const t = grid[r]![c]!;
+      const pt: GridPoint = { col: c, row: r, worldX: c * 64 + 32, worldY: r * 64 + 32 };
+      if (t === 'spawn') spawnPt = pt;
+      if (t === 'objective') objectivePt = pt;
+    }
+  }
+  // Assemble waypoints: spawn first, then path tiles in grid order, then objective.
+  // This is a rough approximation -- sufficient for BOLT-011 tests that don't
+  // exercise spawn/objective direction logic (those tests are in BOLT-012 test file).
+  if (spawnPt) waypoints.push(spawnPt);
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      if (grid[r]![c] === 'path') {
+        waypoints.push({ col: c, row: r, worldX: c * 64 + 32, worldY: r * 64 + 32 });
+      }
+    }
+  }
+  if (objectivePt) waypoints.push(objectivePt);
+  // Fallback: if no spawn/objective found, use first and last cell as defaults
+  // so getSpawnPoint/getObjectivePoint never return undefined.
+  if (waypoints.length === 0) {
+    waypoints.push({ col: 0, row: 0, worldX: 32, worldY: 32 });
+  }
+
   return {
     seed,
     getGridDimensions: () => ({ cols, rows }),
@@ -90,6 +129,9 @@ function createMockMapData(grid: TileType[][], seed = 'test-seed') {
       if (col < 0 || col >= cols || row < 0 || row >= rows) return null;
       return grid[row]![col]!;
     },
+    getWaypoints: () => waypoints,
+    getSpawnPoint: () => waypoints[0]!,
+    getObjectivePoint: () => waypoints[waypoints.length - 1]!,
   };
 }
 
@@ -508,21 +550,25 @@ describe('AutoTileSystem', () => {
       }
     });
 
-    it('should NOT write entries for spawn tiles (AC-011-15)', () => {
+    it('should write directional entries for spawn tiles (BOLT-012 fills AC-011-15 gap)', () => {
       const variantMap = resolveGrid([
         ['spawn', 'path', 'objective'],
       ]);
-      expect(variantMap.has('0,0')).toBe(false); // spawn
+      // BOLT-012 now assigns tile-spawn-{dir} entries for spawn tiles
+      expect(variantMap.has('0,0')).toBe(true); // spawn has entry
+      expect(variantMap.get('0,0')).toMatch(/^tile-spawn-[nesw]$/);
     });
 
-    it('should NOT write entries for objective tiles (AC-011-15)', () => {
+    it('should write directional entries for objective tiles (BOLT-012 fills AC-011-15 gap)', () => {
       const variantMap = resolveGrid([
         ['spawn', 'path', 'objective'],
       ]);
-      expect(variantMap.has('2,0')).toBe(false); // objective
+      // BOLT-012 now assigns tile-objective-{dir} entries for objective tiles
+      expect(variantMap.has('2,0')).toBe(true); // objective has entry
+      expect(variantMap.get('2,0')).toMatch(/^tile-objective-[nesw]$/);
     });
 
-    it('should write entries for all path, buildable, and blocked tiles (AC-011-16)', () => {
+    it('should write entries for ALL tile types including spawn/objective (AC-011-16 + BOLT-012)', () => {
       const grid: TileType[][] = [
         ['spawn', 'path', 'path', 'objective'],
         ['buildable', 'buildable', 'blocked', 'buildable'],
@@ -532,8 +578,9 @@ describe('AutoTileSystem', () => {
       // path: (1,0), (2,0) = 2 entries
       // buildable: (0,1), (1,1), (3,1) = 3 entries
       // blocked: (2,1) = 1 entry
-      // spawn and objective: 0 entries
-      expect(variantMap.size).toBe(6);
+      // spawn: (0,0) = 1 entry (BOLT-012)
+      // objective: (3,0) = 1 entry (BOLT-012)
+      expect(variantMap.size).toBe(8);
     });
 
     it('should be deterministic across two runs with the same seed (AC-011-10, AC-011-13)', () => {
@@ -713,8 +760,8 @@ describe('AutoTileSystem', () => {
       const variantMap = mockScene._registryStore.get(
         REGISTRY_KEYS.TILE_VARIANT_MAP,
       ) as Map<string, string>;
-      // path: 1, buildable: 2, blocked: 1, spawn: 0, objective: 0 = 4
-      expect(variantMap.size).toBe(4);
+      // path: 1, buildable: 2, blocked: 1, spawn: 1, objective: 1 = 6 (BOLT-012)
+      expect(variantMap.size).toBe(6);
     });
   });
 });
