@@ -25,6 +25,7 @@ import { InputSystem } from '../systems/input-system';
 import { MapGeneratorSystem } from '../systems/map-generator-system';
 import { MapRendererSystem } from '../systems/map-renderer-system';
 import { EnemySystem } from '../systems/enemy-system';
+import { WaveSystem } from '../systems/wave-system';
 import type { BaseSystem } from '../systems/base-system';
 
 export class Gameplay extends Phaser.Scene {
@@ -87,17 +88,22 @@ export class Gameplay extends Phaser.Scene {
     const mapRenderer = new MapRendererSystem(this, this.gameState);
     const inputSystem = new InputSystem(this, this.gameState);
 
+    /* Priority 1: Wave system -- drives wave progression and enemy spawning.
+     * Must update before EnemySystem so spawned enemies exist before
+     * movement processing in the same frame. */
+    const waveSystem = new WaveSystem(this, this.gameState, this.configManager);
+
     /* Priority 2: Enemy system -- manages all active enemies on the field.
-     * Must update after input but before tower combat so towers target
+     * Must update after wave system but before tower combat so towers target
      * enemies at their current-frame positions. */
     const enemySystem = new EnemySystem(this, this.gameState, this.poolManager, this.configManager);
 
     this.systems = [
-      mapGenerator,
-      mapRenderer,
-      inputSystem,
-      /* Priority 1: WaveSystem (BOLT-004) */
-      enemySystem, /* Priority 2: EnemySystem (BOLT-003) */
+      mapGenerator,    /* Priority 0 (map) */
+      mapRenderer,     /* Priority 0 (map) */
+      inputSystem,     /* Priority 0 (input) */
+      waveSystem,      /* Priority 1 (wave) -- BOLT-004 */
+      enemySystem,     /* Priority 2 (enemy) -- BOLT-003 */
       /* Priority 3: TowerCombatSystem (BOLT-006) */
       /* Priority 4: ProjectileSystem (BOLT-006) */
       /* Priority 5: EconomySystem (BOLT-008) */
@@ -154,7 +160,8 @@ export class Gameplay extends Phaser.Scene {
     this.poolManager.destroyAll();
 
     /* Clear registry references to prevent stale data in DebugOverlay.
-     * Note: 'mapData' is removed by MapGeneratorSystem.destroy() above. */
+     * Note: 'mapData' is removed by MapGeneratorSystem.destroy() above.
+     * Note: 'waveSystem' is removed by WaveSystem.destroy() above. */
     this.registry.remove('poolManager');
     this.registry.remove('gameState');
     this.registry.remove('configManager');

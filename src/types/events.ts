@@ -85,38 +85,60 @@ export interface EnemyDamagedPayload {
 
 /**
  * Payload for WAVE_STARTED event.
- * Emitted by BOLT-004 (Wave System) at the start of each wave.
- * Listened by BOLT-009 (HUD wave counter).
+ * Emitted by BOLT-004 (Wave System) when PREP->ACTIVE transition occurs.
+ * Listened by BOLT-009 (HUD wave counter, composition preview, boss indicator).
  */
 export interface WaveStartedPayload {
   /** The wave number starting (1-indexed). */
   waveNumber: number;
-  /** Total waves in the run. */
+  /** Total waves in the run (20 for stage mode). */
   totalWaves: number;
   /** Whether this is flagged as a boss/elite wave. */
   isBossWave: boolean;
+  /** Whether the player triggered early start to skip the prep countdown. */
+  earlyStart: boolean;
+  /** Composition summary for the NEXT wave (N+1), or empty array if final wave. */
+  upcomingComposition: CompositionSummaryEntry[];
 }
 
 /**
  * Payload for WAVE_COMPLETED event.
- * Emitted by BOLT-004 when all enemies in a wave are dead.
- * Listened by BOLT-008 (wave bonus currency), BOLT-009 (HUD).
+ * Emitted by BOLT-004 when all enemies in a wave have died or broken through.
+ * Listened by BOLT-008 (wave bonus currency based on earlyStart flag), BOLT-009 (HUD).
  */
 export interface WaveCompletedPayload {
-  /** The wave number that just completed. */
+  /** The wave number that just completed (1-indexed). */
   waveNumber: number;
-  /** Wave completion bonus currency. */
-  bonusCurrency: number;
+  /** Total waves in the run (20 for stage mode). */
+  totalWaves: number;
+  /** Whether this wave was started early by the player. */
+  earlyStart: boolean;
+  /** Game time in milliseconds when the wave completed. */
+  timestamp: number;
 }
 
 /**
  * Payload for ALL_WAVES_COMPLETED event.
- * Emitted by BOLT-004 when the final wave is completed.
+ * Emitted by BOLT-004 when all waves (including the final wave) are completed.
  * Listened by BOLT-009 (victory screen trigger).
  */
 export interface AllWavesCompletedPayload {
-  /** Final score at game completion. */
-  totalScore: number;
+  /** Total waves completed (20 for stage mode). */
+  totalWaves: number;
+  /** Game time in milliseconds when all waves completed. */
+  timestamp: number;
+}
+
+/**
+ * Composition summary entry for wave preview data.
+ * Used in WAVE_STARTED payload and WaveSystem.getUpcomingComposition().
+ * Groups with the same enemyId are merged, ordered by first appearance.
+ */
+export interface CompositionSummaryEntry {
+  /** References EnemyDefinition.id (e.g., "runner", "tank"). */
+  enemyId: string;
+  /** Total count of this enemy type in the wave. */
+  count: number;
 }
 
 // ---------------------------------------------------------------------------

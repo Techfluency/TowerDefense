@@ -145,11 +145,43 @@ if (enemies) {
 // ---------------------------------------------------------------------------
 const waves = loadJson('waves.json');
 if (waves) {
+  /* Minimum wave count check. */
+  if (waves.length < 1) {
+    errors.push('waves.json: must contain at least 1 wave definition');
+  }
+
+  /* Collect all enemy IDs from enemies.json for cross-reference validation. */
+  const validEnemyIds = new Set<string>();
+  if (enemies) {
+    for (const e of enemies) {
+      const id = (e as Record<string, unknown>).id;
+      if (typeof id === 'string') validEnemyIds.add(id);
+    }
+  }
+
+  const seenWaveNumbers = new Set<number>();
+
   for (let i = 0; i < waves.length; i++) {
     const w = waves[i] as Record<string, unknown>;
     requireField(w, 'waveNumber', 'number', 'waves.json', i);
     requireField(w, 'prepTimeMs', 'number', 'waves.json', i);
     requireField(w, 'isBossWave', 'boolean', 'waves.json', i);
+
+    /* Wave number uniqueness check. */
+    const waveNum = w.waveNumber as number;
+    if (typeof waveNum === 'number') {
+      if (seenWaveNumbers.has(waveNum)) {
+        errors.push(`waves.json[${i}]: duplicate waveNumber ${waveNum}`);
+      }
+      seenWaveNumbers.add(waveNum);
+    }
+
+    /* Wave number sequential check (must equal index + 1). */
+    if (typeof waveNum === 'number' && waveNum !== i + 1) {
+      errors.push(
+        `waves.json[${i}]: waveNumber is ${waveNum}, expected ${i + 1} (must be sequential starting from 1)`,
+      );
+    }
 
     if (!('groups' in w) || !Array.isArray(w.groups)) {
       errors.push(`waves.json[${i}]: missing or invalid "groups" array`);
@@ -160,6 +192,15 @@ if (waves) {
         requireField(group, 'count', 'number', `waves.json[${i}].groups`, g);
         requireField(group, 'spawnIntervalMs', 'number', `waves.json[${i}].groups`, g);
         requireField(group, 'delayMs', 'number', `waves.json[${i}].groups`, g);
+
+        /* Cross-reference: enemyId must exist in enemies.json. */
+        const enemyId = group.enemyId as string;
+        if (typeof enemyId === 'string' && validEnemyIds.size > 0 && !validEnemyIds.has(enemyId)) {
+          errors.push(
+            `waves.json[${i}].groups[${g}]: enemyId "${enemyId}" not found in enemies.json. ` +
+            `Available: ${[...validEnemyIds].join(', ')}`,
+          );
+        }
       }
     }
   }

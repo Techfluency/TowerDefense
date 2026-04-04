@@ -15,6 +15,7 @@ import { GAME_WIDTH } from '../config/game-config';
 import type { PoolManager } from '../utils/pool-manager';
 import type { GameState } from '../types/game-types';
 import type { MapData } from '../data/map-data';
+import type { WaveSystem } from '../systems/wave-system';
 import { TARGET_FPS } from '../config/performance-budget';
 
 /** Scene key for the debug overlay. */
@@ -31,6 +32,7 @@ export class DebugOverlay extends Phaser.Scene {
   private entityText!: Phaser.GameObjects.Text;
   private seedText!: Phaser.GameObjects.Text;
   private mapText!: Phaser.GameObjects.Text;
+  private waveText!: Phaser.GameObjects.Text;
   private lastUpdateTime = 0;
 
   constructor() {
@@ -50,10 +52,10 @@ export class DebugOverlay extends Phaser.Scene {
       color: '#ffffff',
     };
 
-    /* Semi-transparent background for readability. */
+    /* Semi-transparent background for readability. Expanded for wave info line. */
     const bg = this.add.graphics();
     bg.fillStyle(0x000000, 0.5);
-    bg.fillRect(GAME_WIDTH - 220, 0, 220, 83);
+    bg.fillRect(GAME_WIDTH - 220, 0, 220, 101);
     bg.setDepth(998);
 
     /* FPS counter -- updated every second, turns red below threshold. */
@@ -77,6 +79,12 @@ export class DebugOverlay extends Phaser.Scene {
     /* Map info: path length and spawn/objective coordinates. */
     this.mapText = this.add
       .text(x, padding + 54, 'Map: ---', textStyle)
+      .setOrigin(1, 0)
+      .setDepth(999);
+
+    /* Wave info: current wave, state, prep remaining. */
+    this.waveText = this.add
+      .text(x, padding + 72, 'Wave: ---', textStyle)
       .setOrigin(1, 0)
       .setDepth(999);
   }
@@ -123,6 +131,17 @@ export class DebugOverlay extends Phaser.Scene {
       this.mapText.setText(
         `Path: ${mapData.getPathLength()} | S(${spawn.col},${spawn.row}) O(${obj.col},${obj.row})`,
       );
+    }
+
+    /* Read wave system state for wave number, state, and prep remaining. */
+    const waveSystem = this.registry.get('waveSystem') as WaveSystem | undefined;
+    if (waveSystem) {
+      const wave = waveSystem.getCurrentWave();
+      const total = waveSystem.getTotalWaves();
+      const state = waveSystem.getState();
+      const prepMs = waveSystem.getPrepTimeRemaining();
+      const prepSec = Math.ceil(prepMs / 1000);
+      this.waveText.setText(`Wave: ${wave}/${total} [${state}] Prep: ${prepSec}s`);
     }
   }
 }
