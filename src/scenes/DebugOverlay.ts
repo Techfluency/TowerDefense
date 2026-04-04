@@ -11,7 +11,6 @@
  * Gameplay scene stores there during create().
  */
 import Phaser from 'phaser';
-import { GAME_WIDTH } from '../config/game-config';
 import type { PoolManager } from '../utils/pool-manager';
 import type { GameState } from '../types/game-types';
 import type { MapData } from '../data/map-data';
@@ -40,52 +39,56 @@ export class DebugOverlay extends Phaser.Scene {
   }
 
   /**
-   * Creates the debug overlay text objects in the top-right corner.
+   * Creates the debug overlay text objects in the top-LEFT corner.
    * Semi-transparent black background for readability over game content.
+   *
+   * Moved from top-right to top-left to avoid overlapping the build menu
+   * panel which occupies the right side of the screen (D2 fix).
    */
   create(): void {
     const padding = 10;
-    const x = GAME_WIDTH - padding;
+    const x = padding;
     const textStyle: Phaser.Types.GameObjects.Text.TextStyle = {
       fontSize: '14px',
       fontFamily: 'monospace',
       color: '#ffffff',
     };
 
-    /* Semi-transparent background for readability. Expanded for wave info line. */
+    /* Semi-transparent background for readability. Positioned top-left
+     * to avoid overlapping the build menu panel on the right side. */
     const bg = this.add.graphics();
     bg.fillStyle(0x000000, 0.5);
-    bg.fillRect(GAME_WIDTH - 220, 0, 220, 101);
+    bg.fillRect(0, 0, 320, 101);
     bg.setDepth(998);
 
     /* FPS counter -- updated every second, turns red below threshold. */
     this.fpsText = this.add
       .text(x, padding, `FPS: ${TARGET_FPS}`, textStyle)
-      .setOrigin(1, 0)
+      .setOrigin(0, 0)
       .setDepth(999);
 
     /* Active entity counts from the pool manager. */
     this.entityText = this.add
       .text(x, padding + 18, 'Enemies: 0 / Projectiles: 0', textStyle)
-      .setOrigin(1, 0)
+      .setOrigin(0, 0)
       .setDepth(999);
 
     /* Game seed for reproducibility debugging. */
     this.seedText = this.add
       .text(x, padding + 36, 'Seed: ---', textStyle)
-      .setOrigin(1, 0)
+      .setOrigin(0, 0)
       .setDepth(999);
 
     /* Map info: path length and spawn/objective coordinates. */
     this.mapText = this.add
       .text(x, padding + 54, 'Map: ---', textStyle)
-      .setOrigin(1, 0)
+      .setOrigin(0, 0)
       .setDepth(999);
 
     /* Wave info: current wave, state, prep remaining. */
     this.waveText = this.add
       .text(x, padding + 72, 'Wave: ---', textStyle)
-      .setOrigin(1, 0)
+      .setOrigin(0, 0)
       .setDepth(999);
   }
 

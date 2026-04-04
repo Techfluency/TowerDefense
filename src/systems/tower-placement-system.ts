@@ -117,6 +117,10 @@ export class TowerPlacementSystem extends BaseSystem {
   // --- Sell State ---
   /** The tower currently showing a sell tooltip, null if none. */
   private sellTargetId: string | null = null;
+  /** Grid column of the tower with the active sell tooltip (for hover dismiss). */
+  private sellTargetCol = -1;
+  /** Grid row of the tower with the active sell tooltip (for hover dismiss). */
+  private sellTargetRow = -1;
   private sellTooltip: Phaser.GameObjects.Container | null = null;
 
   /** Flag to disable all interactions after GAME_OVER. */
@@ -445,10 +449,17 @@ export class TowerPlacementSystem extends BaseSystem {
   }
 
   /**
-   * Handles TILE_HOVER_CHANGED: updates ghost position and tint.
-   * Only active when in placement mode.
+   * Handles TILE_HOVER_CHANGED: updates ghost position and tint, and dismisses
+   * the sell tooltip if the cursor moves away from the tower tile that triggered it.
    */
   private handleTileHover(payload: TileHoverPayload): void {
+    /* Dismiss sell tooltip when cursor moves to a different tile (D1 fix). */
+    if (this.sellTargetId !== null) {
+      if (payload.col !== this.sellTargetCol || payload.row !== this.sellTargetRow) {
+        this.dismissSellTooltip();
+      }
+    }
+
     if (!this.placementActive || !this.ghostSprite || !this.selectedTowerDef) return;
 
     const { col, row } = payload;
@@ -498,11 +509,16 @@ export class TowerPlacementSystem extends BaseSystem {
   }
 
   /**
-   * Handles TILE_CLICKED: commits placement if valid, rejects if invalid.
-   * When NOT in placement mode, this event is ignored (sell uses raw pointer).
+   * Handles TILE_CLICKED (left-click): commits placement if valid, rejects if
+   * invalid. Also dismisses the sell tooltip on any left-click (D1 fix).
    */
   private handleTileClicked(payload: TileClickedPayload): void {
     if (this.gameOver) return;
+
+    /* Dismiss sell tooltip on any left-click regardless of placement state (D1 fix). */
+    if (this.sellTargetId !== null) {
+      this.dismissSellTooltip();
+    }
 
     /* Ignore clicks over the build menu area. */
     if (this.isCursorOverMenu(payload.worldX)) return;
@@ -676,10 +692,13 @@ export class TowerPlacementSystem extends BaseSystem {
   /**
    * Shows the sell tooltip above a placed tower.
    * Displays "Sell: +{refundAmount}". Second right-click confirms.
+   * Stores the tower's grid position for hover-based dismissal.
    */
-  private showSellTooltip(tower: { instanceId: string; worldX: number; worldY: number }): void {
+  private showSellTooltip(tower: { instanceId: string; col: number; row: number; worldX: number; worldY: number }): void {
     this.dismissSellTooltip();
     this.sellTargetId = tower.instanceId;
+    this.sellTargetCol = tower.col;
+    this.sellTargetRow = tower.row;
 
     const refund = this.towerRegistry.getRefundAmount(tower.instanceId);
     const text = `Sell: +${refund}`;
@@ -744,6 +763,7 @@ export class TowerPlacementSystem extends BaseSystem {
 
   /**
    * Dismisses the sell tooltip if one is visible.
+   * Resets all sell target tracking state.
    */
   private dismissSellTooltip(): void {
     if (this.sellTooltip) {
@@ -751,6 +771,8 @@ export class TowerPlacementSystem extends BaseSystem {
       this.sellTooltip = null;
     }
     this.sellTargetId = null;
+    this.sellTargetCol = -1;
+    this.sellTargetRow = -1;
   }
 
   // ---------------------------------------------------------------------------
