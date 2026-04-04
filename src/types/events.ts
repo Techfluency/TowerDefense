@@ -361,3 +361,20 @@ export interface TileHoverPayload {
   /** Pixel Y coordinate. */
   worldY: number;
 }
+
+// ---------------------------------------------------------------------------
+// Auto-Tile Events
+// ---------------------------------------------------------------------------
+
+/**
+ * Payload for AUTO_TILE_READY event.
+ * Emitted by BOLT-011 (AutoTileSystem) after the TileVariantMap is stored on
+ * the Phaser registry. Listened by BOLT-012 (spawn/objective variants) and
+ * BOLT-013 (MapRendererSystem variant rendering).
+ */
+export interface AutoTileReadyPayload {
+  /** Total entries in the TileVariantMap (path + buildable + blocked tiles). */
+  tileCount: number;
+  /** The map seed used for variant selection (pass-through from MapData.seed). */
+  seed: string;
+}

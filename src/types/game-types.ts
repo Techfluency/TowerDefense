@@ -427,6 +427,8 @@ export const GAME_EVENTS = {
   MAP_READY: 'MAP_READY',
   /** Emitted by BOLT-003 EnemySystem when an enemy is spawned. Listened by BOLT-004 (wave tracking). */
   ENEMY_SPAWNED: 'ENEMY_SPAWNED',
+  /** Emitted by BOLT-011 AutoTileSystem when TileVariantMap is stored on registry. Listened by BOLT-012, BOLT-013. */
+  AUTO_TILE_READY: 'AUTO_TILE_READY',
 } as const;
 
 /**
@@ -434,3 +436,19 @@ export const GAME_EVENTS = {
  * that accept any game event.
  */
 export type GameEventName = (typeof GAME_EVENTS)[keyof typeof GAME_EVENTS];
+
+/**
+ * Registry key constants for data stored on the Phaser registry.
+ * Use these instead of raw string literals to prevent typo-based bugs.
+ * BOLT-012 and BOLT-013 import TILE_VARIANT_MAP from here.
+ */
+export const REGISTRY_KEYS = {
+  /** Key for the TileVariantMap produced by AutoTileSystem (BOLT-011). */
+  TILE_VARIANT_MAP: 'tileVariantMap',
+} as const;
+
+/**
+ * Sprite key lookup table for each tile, keyed by "col,row".
+ * Produced by AutoTileSystem (BOLT-011), consumed by BOLT-012 and BOLT-013.
+ */
+export type TileVariantMap = Map<string, string>;

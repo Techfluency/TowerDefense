@@ -23,6 +23,7 @@ import { ConfigManager } from '../utils/config-manager';
 import { PoolManager, DEFAULT_POOL_CONFIG } from '../utils/pool-manager';
 import { InputSystem } from '../systems/input-system';
 import { MapGeneratorSystem } from '../systems/map-generator-system';
+import { AutoTileSystem } from '../systems/auto-tile-system';
 import { MapRendererSystem } from '../systems/map-renderer-system';
 import { EnemySystem } from '../systems/enemy-system';
 import { WaveSystem } from '../systems/wave-system';
@@ -93,6 +94,7 @@ export class Gameplay extends Phaser.Scene {
      * Map systems run first: generator produces data, renderer draws tiles.
      * Both must complete before any gameplay system queries map data. */
     const mapGenerator = new MapGeneratorSystem(this, this.gameState, this.rng, this.configManager);
+    const autoTileSystem = new AutoTileSystem(this, this.gameState);
     const mapRenderer = new MapRendererSystem(this, this.gameState);
     const inputSystem = new InputSystem(this, this.gameState);
 
@@ -172,6 +174,7 @@ export class Gameplay extends Phaser.Scene {
 
     this.systems = [
       mapGenerator,          /* Priority 0 (map) */
+      autoTileSystem,        /* Priority 0 (auto-tile) -- BOLT-011 */
       mapRenderer,           /* Priority 0 (map) */
       inputSystem,           /* Priority 0 (input) */
       towerRegistry,         /* Priority 0 (tower data) -- BOLT-005 */
@@ -239,6 +242,7 @@ export class Gameplay extends Phaser.Scene {
 
     /* Clear registry references to prevent stale data in DebugOverlay.
      * Note: 'mapData' is removed by MapGeneratorSystem.destroy() above.
+     * Note: 'tileVariantMap' is removed by AutoTileSystem.destroy() above.
      * Note: 'waveSystem' is removed by WaveSystem.destroy() above.
      * Note: 'towerRegistry' is removed by TowerRegistry.destroy() above.
      * Note: 'upgradeSystem' is removed by UpgradeSystem.destroy() above. */
