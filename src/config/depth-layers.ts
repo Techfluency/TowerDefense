@@ -37,5 +37,14 @@ export const DEPTH_PROJECTILES = 25;
 /** Impact VFX -- above projectiles, below UI. */
 export const DEPTH_VFX = 26;
 
+/** Floating reward/notification text -- above game objects, below HUD. BOLT-009. */
+export const DEPTH_FLOATING_TEXT = 99;
+
 /** HUD elements -- always on top. */
 export const DEPTH_UI = 100;
+
+/** Tooltips -- above all HUD elements. BOLT-009. */
+export const DEPTH_TOOLTIP = 101;
+
+/** Full-screen overlays (pause, wave summary, settings, coach marks). BOLT-009. */
+export const DEPTH_OVERLAY = 105;

@@ -788,8 +788,9 @@ export class TowerPlacementSystem extends BaseSystem {
   /**
    * Dismisses the sell tooltip if one is visible.
    * Resets all sell target tracking state.
+   * Public so BOLT-009 HudSystem can dismiss on non-tower-tile clicks.
    */
-  private dismissSellTooltip(): void {
+  dismissSellTooltip(): void {
     if (this.sellTooltip) {
       this.sellTooltip.destroy();
       this.sellTooltip = null;
