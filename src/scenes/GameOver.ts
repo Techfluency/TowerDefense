@@ -151,7 +151,7 @@ export class GameOver extends Phaser.Scene {
     bg.fillStyle(bgColor, 1);
     bg.fillRoundedRect(x - width / 2, y - height / 2, width, height, BTN_CORNER_RADIUS);
 
-    const text = this.add.text(x, y, label, textStyle).setOrigin(0.5);
+    this.add.text(x, y, label, textStyle).setOrigin(0.5);
 
     /* Interactive hit zone. */
     const hitZone = this.add.zone(x, y, width, height)

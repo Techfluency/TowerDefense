@@ -76,7 +76,6 @@ const OVERLAY_BG_ALPHA = 0.92;
 const OVERLAY_CORNER_RADIUS = 8;
 
 /** Tooltip config. */
-const TOOLTIP_SHOW_DELAY = 300;
 const TOOLTIP_BG_COLOR = 0x1A1A2E;
 const TOOLTIP_BG_ALPHA = 0.9;
 const TOOLTIP_BORDER_COLOR = 0x4A4A6A;
@@ -197,6 +196,7 @@ export class HudSystem extends BaseSystem {
     this.listen(GAME_EVENTS.TOWER_UPGRADED, this.onTowerUpgraded as (...args: never[]) => void);
     this.listen(GAME_EVENTS.TOWER_REPAIRED, this.onTowerRepaired as (...args: never[]) => void);
     this.listen(GAME_EVENTS.ENEMY_DIED, this.onEnemyDied as (...args: never[]) => void);
+    this.listen(GAME_EVENTS.TILE_CLICKED, this.onTileClicked as (...args: never[]) => void);
 
     /* Initialize localStorage coach mark flags. */
     try {
@@ -924,35 +924,33 @@ export class HudSystem extends BaseSystem {
   // Event Handlers
   // ---------------------------------------------------------------------------
 
+  /** Tracks the last enemy death position for floating text placement.
+   * ENEMY_DIED fires before CURRENCY_CHANGED (synchronous), so we cache
+   * the position here and use it when CURRENCY_CHANGED arrives. */
+  private lastDeathPos: { x: number; y: number } | null = null;
+
   /** Updates currency display and spawns floating reward text. */
   private onCurrencyChanged(payload: CurrencyChangedPayload): void {
     this.currencyText?.setText(`${payload.newAmount}`);
 
     /* Only show floating text for kill rewards and wave/early bonuses. */
-    if (payload.delta > 0 && (
-      payload.reason === 'enemy_kill' ||
-      payload.reason === 'wave_bonus' ||
-      payload.reason === 'early_start_bonus'
-    )) {
-      const variant = payload.reason === 'enemy_kill' ? 'currency' : 'bonus';
-      const content = payload.reason === 'enemy_kill'
-        ? `+${payload.delta}`
-        : `+${payload.delta} Bonus!`;
-
-      /* For kill rewards, use the position from the most recent ENEMY_DIED.
-       * For wave bonuses, show near the HUD currency display. */
-      if (payload.reason === 'enemy_kill') {
-        /* Position will be set by the preceding ENEMY_DIED handler. */
-        this.pendingCurrencyRewardDelta = payload.delta;
-      } else {
-        this.spawnFloatingText(HUD_PADDING_X + 50, HUD_BAR_HEIGHT + 20, content, variant);
+    if (payload.delta > 0) {
+      if (payload.reason === 'enemy_kill' && this.lastDeathPos) {
+        /* Show at kill location. */
+        this.spawnFloatingText(
+          this.lastDeathPos.x, this.lastDeathPos.y,
+          `+${payload.delta}`, 'currency',
+        );
+        this.lastDeathPos = null;
+      } else if (payload.reason === 'wave_bonus' || payload.reason === 'early_start_bonus') {
+        /* Show near HUD currency display. */
+        this.spawnFloatingText(
+          HUD_PADDING_X + 50, HUD_BAR_HEIGHT + 20,
+          `+${payload.delta} Bonus!`, 'bonus',
+        );
       }
     }
   }
-
-  /** Tracks the last enemy death position for floating text placement. */
-  private lastEnemyDeathPos: { x: number; y: number } | null = null;
-  private pendingCurrencyRewardDelta = 0;
 
   /** Updates score display. */
   private onScoreChanged(payload: ScoreChangedPayload): void {
@@ -962,17 +960,8 @@ export class HudSystem extends BaseSystem {
   /** Handles ENEMY_DIED: records kill position for floating text, increments running kills. */
   private onEnemyDied(payload: { position: { x: number; y: number } }): void {
     this.runningKills++;
-    this.lastEnemyDeathPos = payload.position;
-
-    /* Spawn currency floating text at kill location if there's a pending delta. */
-    if (this.pendingCurrencyRewardDelta > 0) {
-      this.spawnFloatingText(
-        payload.position.x, payload.position.y,
-        `+${this.pendingCurrencyRewardDelta}`,
-        'currency',
-      );
-      this.pendingCurrencyRewardDelta = 0;
-    }
+    /* Cache position for the CURRENCY_CHANGED event that follows synchronously. */
+    this.lastDeathPos = payload.position;
   }
 
   /**
@@ -1033,5 +1022,49 @@ export class HudSystem extends BaseSystem {
     if (tower) {
       this.spawnFloatingText(tower.worldX, tower.worldY - 20, 'Repaired!', 'action');
     }
+  }
+
+  /**
+   * Handles TILE_CLICKED: shows upgrade coach mark on first tower click,
+   * dismisses sell tooltip on non-tower-tile clicks, dismisses tooltips.
+   */
+  private onTileClicked(payload: TileClickedPayload): void {
+    /* Dismiss any open tooltip on click. */
+    this.destroyTooltip();
+
+    /* Check if clicked tile has a tower (for upgrade coach mark). */
+    const towerRegistry = this.scene.registry.get('towerRegistry') as
+      { getTowerAt(col: number, row: number): { worldX: number; worldY: number; instanceId: string } | null } | undefined;
+    const tower = towerRegistry?.getTowerAt(payload.col, payload.row);
+
+    if (tower) {
+      /* Show upgrade coach mark on first tower click. */
+      this.showUpgradeCoachMark(tower.worldX, tower.worldY);
+    } else {
+      /* Non-tower-tile click: dismiss sell tooltip (BOLT-005 UX gap fix). */
+      const placementSystem = this.scene.registry.get('towerPlacementSystem') as
+        { dismissSellTooltip(): void } | undefined;
+      placementSystem?.dismissSellTooltip();
+    }
+  }
+
+  /**
+   * Shows an enemy tooltip when hovering over an enemy sprite.
+   * Called externally via the public showEnemyTooltip method.
+   */
+  showEnemyTooltip(enemy: Enemy): void {
+    const typeName = enemy.definition.name;
+    const currentHp = enemy.getCurrentHp();
+    const maxHp = enemy.getMaxHp();
+    const lines = [typeName, `HP: ${currentHp} / ${maxHp}`];
+    if (enemy.isFlying) {
+      lines.push('Flying');
+    }
+    this.showTooltip(enemy.sprite.x, enemy.sprite.y, lines);
+  }
+
+  /** Hides the current enemy tooltip. */
+  hideEnemyTooltip(): void {
+    this.destroyTooltip();
   }
 }
