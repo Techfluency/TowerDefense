@@ -383,10 +383,187 @@ const projectiles = {
 };
 
 // ═══════════════════════════════════════════════════════════════════════
+// BOLT-010: AUTO-TILE SPRITE VARIANTS
+// Path bitmask encoding: bit 0 = north, bit 1 = east, bit 2 = south,
+// bit 3 = west. A set bit means a path neighbor exists in that direction.
+// Only the 11 masks reachable by the single-path generator are produced.
+// ═══════════════════════════════════════════════════════════════════════
+
+/**
+ * Builds an SVG string for a path tile with the given bitmask.
+ * Connected edges extend dirt/sand to the tile boundary for seamless joins.
+ * Terminated edges show a grass strip 8px from the edge.
+ *
+ * @param {number} mask - 4-bit bitmask (N=1, E=2, S=4, W=8)
+ * @returns {string} SVG markup for a 64x64 tile
+ */
+function buildPathSvg(mask) {
+  const hasN = (mask & 1) !== 0;
+  const hasE = (mask & 2) !== 0;
+  const hasS = (mask & 4) !== 0;
+  const hasW = (mask & 8) !== 0;
+
+  // Path region insets -- 0 if connected (flush to edge), 8 if terminated
+  const top = hasN ? 0 : 8;
+  const right = hasE ? 64 : 56;
+  const bottom = hasS ? 64 : 56;
+  const left = hasW ? 0 : 8;
+
+  // Unique filter IDs per mask to avoid SVG id collisions in composite renders
+  const id = `pm${mask}`;
+
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64">
+  <defs>
+    <linearGradient id="${id}g" x1="0" y1="0" x2="0.7" y2="1">
+      <stop offset="0%" stop-color="#C9A96E"/>
+      <stop offset="50%" stop-color="#B8935A"/>
+      <stop offset="100%" stop-color="#A07840"/>
+    </linearGradient>
+    <filter id="${id}n">
+      <feTurbulence type="fractalNoise" baseFrequency="0.12" numOctaves="5" seed="${mask + 10}"/>
+      <feColorMatrix type="saturate" values="0"/>
+      <feBlend in="SourceGraphic" mode="multiply"/>
+    </filter>
+  </defs>
+  <!-- Grass background -->
+  <rect width="64" height="64" fill="#3B8C3F"/>
+  <rect width="64" height="64" fill="#347D37" opacity="0.3"/>
+  <!-- Grass blade strokes on terminated edges -->
+  ${!hasN ? '<g stroke="#2A6B2E" stroke-width="1.3" stroke-linecap="round" opacity="0.5"><line x1="12" y1="6" x2="10" y2="1"/><line x1="28" y1="7" x2="26" y2="2"/><line x1="44" y1="6" x2="42" y2="1"/></g>' : ''}
+  ${!hasE ? '<g stroke="#2A6B2E" stroke-width="1.3" stroke-linecap="round" opacity="0.5"><line x1="58" y1="12" x2="63" y2="10"/><line x1="59" y1="32" x2="63" y2="30"/><line x1="58" y1="50" x2="63" y2="48"/></g>' : ''}
+  ${!hasS ? '<g stroke="#2A6B2E" stroke-width="1.3" stroke-linecap="round" opacity="0.5"><line x1="12" y1="58" x2="10" y2="63"/><line x1="28" y1="57" x2="26" y2="62"/><line x1="44" y1="58" x2="42" y2="63"/></g>' : ''}
+  ${!hasW ? '<g stroke="#2A6B2E" stroke-width="1.3" stroke-linecap="round" opacity="0.5"><line x1="6" y1="12" x2="1" y2="10"/><line x1="5" y1="32" x2="1" y2="30"/><line x1="6" y1="50" x2="1" y2="48"/></g>' : ''}
+  <!-- Dirt/sand path surface -->
+  <rect x="${left}" y="${top}" width="${right - left}" height="${bottom - top}" fill="url(#${id}g)"/>
+  <rect x="${left}" y="${top}" width="${right - left}" height="${bottom - top}" fill="url(#${id}g)" filter="url(#${id}n)" opacity="0.2"/>
+  <!-- Pebble detail on path surface -->
+  <circle cx="${left + 10}" cy="${top + 8}" r="1.5" fill="#8B7340" opacity="0.45"/>
+  <circle cx="${right - 12}" cy="${bottom - 10}" r="2" fill="#806830" opacity="0.4"/>
+  <circle cx="${(left + right) / 2}" cy="${(top + bottom) / 2 + 4}" r="1.2" fill="#7A6535" opacity="0.35"/>
+</svg>`;
+}
+
+// The 11 reachable bitmask values for the single-path generator
+const REACHABLE_PATH_MASKS = [0, 1, 2, 3, 4, 5, 6, 8, 9, 10, 12];
+
+// ═══════════════════════════════════════════════════════════════════════
+// BOLT-010: DIRECTIONAL SPAWN AND OBJECTIVE BASE SVGS
+// Base sprites have the opening on the EAST edge. sharp.rotate() produces
+// the other 3 directions: 90=south, 180=west, 270=north.
+// ═══════════════════════════════════════════════════════════════════════
+
+/**
+ * Spawn portal with east-facing opening. The opening is a gap in the ring
+ * on the right edge where enemies emerge, with a bright energy glow.
+ */
+const spawnDirectionalBase = `<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64">
+  <defs>
+    <radialGradient id="sdG" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#FF8C00"/>
+      <stop offset="35%" stop-color="#FF5500"/>
+      <stop offset="70%" stop-color="#CC2200"/>
+      <stop offset="100%" stop-color="#220500"/>
+    </radialGradient>
+    <radialGradient id="sdC" cx="50%" cy="50%" r="35%">
+      <stop offset="0%" stop-color="#FFCC44"/>
+      <stop offset="50%" stop-color="#FF8800"/>
+      <stop offset="100%" stop-color="#FF440000"/>
+    </radialGradient>
+    <filter id="sdGl">
+      <feGaussianBlur stdDeviation="2.5" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="sdGl2">
+      <feGaussianBlur stdDeviation="1.5" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <rect width="64" height="64" fill="#180800"/>
+  <rect width="64" height="64" fill="url(#sdG)" opacity="0.9"/>
+  <!-- Portal ring with gap on the east (right) edge -->
+  <path d="M32,8 A24,24 0 1,0 32,56 A24,24 0 0,0 56,32" fill="none" stroke="#553320" stroke-width="4" opacity="0.7"/>
+  <path d="M32,8 A24,24 0 1,0 32,56 A24,24 0 0,0 56,32" fill="none" stroke="#774430" stroke-width="2" opacity="0.5"/>
+  <!-- Energy glow at east opening -->
+  <rect x="54" y="24" width="10" height="16" fill="#FF8800" opacity="0.35" filter="url(#sdGl)"/>
+  <rect x="56" y="28" width="8" height="8" fill="#FFCC44" opacity="0.5" filter="url(#sdGl2)"/>
+  <!-- Directional arrow pointing east -->
+  <polygon points="50,26 60,32 50,38" fill="#FFBB44" opacity="0.6" filter="url(#sdGl2)"/>
+  <!-- Inner energy core -->
+  <circle cx="32" cy="32" r="18" fill="url(#sdC)" opacity="0.85"/>
+  <circle cx="32" cy="32" r="6" fill="#FFCC44" opacity="0.7" filter="url(#sdGl)"/>
+  <circle cx="32" cy="32" r="3" fill="#FFEEAA" opacity="0.85"/>
+  <circle cx="32" cy="32" r="1.2" fill="#FFFFFF" opacity="0.95"/>
+  <!-- Swirl energy lines -->
+  <path d="M32,14 C44,20 44,32 32,32 C20,32 20,44 32,50" fill="none" stroke="#FFBB44" stroke-width="1.5" opacity="0.3" filter="url(#sdGl2)"/>
+  <!-- Accent sparks -->
+  <circle cx="22" cy="18" r="1" fill="#FF8800" opacity="0.6" filter="url(#sdGl2)"/>
+  <circle cx="44" cy="22" r="0.8" fill="#FFAA00" opacity="0.5" filter="url(#sdGl2)"/>
+  <circle cx="40" cy="46" r="1.2" fill="#FF6600" opacity="0.5" filter="url(#sdGl2)"/>
+</svg>`;
+
+/**
+ * Objective castle with east-facing gate opening. The gate arch faces
+ * right, with battlements around the other three edges.
+ */
+const objectiveDirectionalBase = `<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64">
+  <defs>
+    <radialGradient id="odG" cx="50%" cy="50%" r="55%">
+      <stop offset="0%" stop-color="#6A5ACD"/>
+      <stop offset="50%" stop-color="#3E348A"/>
+      <stop offset="100%" stop-color="#14102E"/>
+    </radialGradient>
+    <filter id="odGl">
+      <feGaussianBlur stdDeviation="1.8" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="odSh">
+      <feDropShadow dx="1" dy="1" stdDeviation="1.5" flood-color="#000" flood-opacity="0.4"/>
+    </filter>
+    <linearGradient id="odW" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#7A6CB8"/>
+      <stop offset="100%" stop-color="#4A3E80"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" fill="#14102E"/>
+  <rect width="64" height="64" fill="url(#odG)" opacity="0.8"/>
+  <!-- Castle walls -->
+  <rect x="6" y="14" width="52" height="36" fill="url(#odW)" rx="2" filter="url(#odSh)"/>
+  <!-- Stone lines -->
+  <line x1="8" y1="24" x2="56" y2="24" stroke="#3E348A" stroke-width="0.5" opacity="0.5"/>
+  <line x1="8" y1="34" x2="56" y2="34" stroke="#3E348A" stroke-width="0.5" opacity="0.5"/>
+  <!-- Left tower with crenellations -->
+  <rect x="4" y="8" width="12" height="28" fill="#6A5AB0" rx="1" filter="url(#odSh)"/>
+  <rect x="4" y="6" width="4" height="5" fill="#7A6CB8"/>
+  <rect x="8" y="6" width="4" height="5" fill="#7A6CB8"/>
+  <rect x="12" y="6" width="4" height="5" fill="#7A6CB8"/>
+  <!-- Top crenellations along north wall -->
+  <rect x="20" y="10" width="5" height="5" fill="#7A6CB8"/>
+  <rect x="28" y="10" width="5" height="5" fill="#7A6CB8"/>
+  <rect x="36" y="10" width="5" height="5" fill="#7A6CB8"/>
+  <!-- Gate arch facing east (right side) -->
+  <path d="M52,22 Q64,22 64,32 Q64,42 52,42 L52,22 Z" fill="#1A1040"/>
+  <path d="M54,24 Q62,24 62,32 Q62,40 54,40 L54,24 Z" fill="#241858"/>
+  <!-- Portcullis lines inside the gate -->
+  <line x1="56" y1="24" x2="56" y2="40" stroke="#3E348A" stroke-width="0.8" opacity="0.6"/>
+  <line x1="59" y1="24" x2="59" y2="40" stroke="#3E348A" stroke-width="0.8" opacity="0.6"/>
+  <!-- Banner/flag on left tower -->
+  <polygon points="10,2 5,8 15,8" fill="#A888FF" filter="url(#odGl)"/>
+  <polygon points="10,4 7,8 13,8" fill="#C8B8FF" opacity="0.7"/>
+  <!-- Diamond emblem on wall -->
+  <path d="M32,26 L29,30 L32,34 L35,30 Z" fill="#9888CC" stroke="#B8A8E8" stroke-width="0.6"/>
+  <!-- Ground glow -->
+  <ellipse cx="32" cy="52" rx="20" ry="4" fill="#6A5ACD" opacity="0.15" filter="url(#odGl)"/>
+</svg>`;
+
+// Rotation degrees for directional variants: east=base, south=90, west=180, north=270
+const DIRECTION_ROTATIONS = { e: 0, s: 90, w: 180, n: 270 };
+
+// ═══════════════════════════════════════════════════════════════════════
 // GENERATE
 // ═══════════════════════════════════════════════════════════════════════
 
 async function generateAll() {
+  // --- Legacy flat sprites (existing behavior, unchanged) ---
   const assets = {};
   assets['tile-path'] = pathTile;
   grassVariants.forEach((svg, i) => { assets[`tile-buildable${i === 0 ? '' : '-' + (i + 1)}`] = svg; });
@@ -395,10 +572,63 @@ async function generateAll() {
   assets['tile-objective'] = objectiveTile;
   Object.assign(assets, towers, enemies, projectiles);
 
-  const total = Object.keys(assets).length;
-  let count = 0;
-  console.log(`Generating ${total} game assets (v3)...\n`);
+  // --- BOLT-010: tile variant sprites in subdirectories ---
+  const tileAssets = [];
 
+  // Path bitmask variants (11 sprites)
+  for (const mask of REACHABLE_PATH_MASKS) {
+    tileAssets.push({
+      name: `tile-path-${mask}`,
+      svg: buildPathSvg(mask),
+      outDir: path.join(SPRITES_DIR, 'tiles', 'path'),
+    });
+  }
+
+  // Grass/buildable variants (5 sprites, reusing existing SVGs at new paths)
+  grassVariants.forEach((svg, i) => {
+    tileAssets.push({
+      name: `tile-buildable-${i + 1}`,
+      svg,
+      outDir: path.join(SPRITES_DIR, 'tiles', 'grass'),
+    });
+  });
+
+  // Blocked variants (3 sprites, reusing existing SVGs at new paths)
+  blockedVariants.forEach((svg, i) => {
+    tileAssets.push({
+      name: `tile-blocked-${i + 1}`,
+      svg,
+      outDir: path.join(SPRITES_DIR, 'tiles', 'blocked'),
+    });
+  });
+
+  // Spawn directional variants (4 sprites via rotation)
+  for (const [dir, deg] of Object.entries(DIRECTION_ROTATIONS)) {
+    tileAssets.push({
+      name: `tile-spawn-${dir}`,
+      svg: spawnDirectionalBase,
+      outDir: path.join(SPRITES_DIR, 'tiles', 'spawn'),
+      rotateDeg: deg,
+    });
+  }
+
+  // Objective directional variants (4 sprites via rotation)
+  for (const [dir, deg] of Object.entries(DIRECTION_ROTATIONS)) {
+    tileAssets.push({
+      name: `tile-objective-${dir}`,
+      svg: objectiveDirectionalBase,
+      outDir: path.join(SPRITES_DIR, 'tiles', 'objective'),
+      rotateDeg: deg,
+    });
+  }
+
+  const totalLegacy = Object.keys(assets).length;
+  const totalTile = tileAssets.length;
+  const total = totalLegacy + totalTile;
+  let count = 0;
+  console.log(`Generating ${total} game assets (v3 + BOLT-010 tiles)...\n`);
+
+  // Generate legacy flat sprites
   for (const [name, svg] of Object.entries(assets)) {
     const outPath = path.join(SPRITES_DIR, `${name}.png`);
     try {
@@ -409,6 +639,26 @@ async function generateAll() {
       console.error(`  FAIL: ${name} - ${err.message}`);
     }
   }
+
+  // Generate BOLT-010 tile variant sprites
+  console.log('\n  --- BOLT-010: Auto-tile variants ---');
+  for (const tile of tileAssets) {
+    fs.mkdirSync(tile.outDir, { recursive: true });
+    const outPath = path.join(tile.outDir, `${tile.name}.png`);
+    try {
+      let pipeline = sharp(Buffer.from(tile.svg));
+      // Apply rotation for directional spawn/objective sprites
+      if (tile.rotateDeg) {
+        pipeline = pipeline.rotate(tile.rotateDeg).resize(64, 64);
+      }
+      await pipeline.png().toFile(outPath);
+      count++;
+      console.log(`  [${count}/${total}] tiles/.../${tile.name}.png`);
+    } catch (err) {
+      console.error(`  FAIL: ${tile.name} - ${err.message}`);
+    }
+  }
+
   console.log(`\nDone! Generated ${count}/${total} assets in ${SPRITES_DIR}`);
 }
 

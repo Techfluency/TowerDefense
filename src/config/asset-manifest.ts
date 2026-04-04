@@ -80,12 +80,54 @@ export const ASSET_MANIFEST: AssetManifest = {
     { key: 'projectile-blast', path: 'sprites/projectile-blast.png' },
     { key: 'projectile-missile', path: 'sprites/projectile-missile.png' },
 
-    /* Tile placeholder sprites. */
+    /* Tile placeholder sprites (legacy -- pre-BOLT-010). */
     { key: 'tile-path', path: 'sprites/tile-path.png' },
     { key: 'tile-buildable', path: 'sprites/tile-buildable.png' },
     { key: 'tile-blocked', path: 'sprites/tile-blocked.png' },
     { key: 'tile-spawn', path: 'sprites/tile-spawn.png' },
     { key: 'tile-objective', path: 'sprites/tile-objective.png' },
+
+    /* BOLT-010: Auto-tile sprite variants.
+     * 27 tile sprites for the auto-tiling system (BOLT-011 through BOLT-013).
+     * Path sprites use 4-bit bitmask keys (N=1, E=2, S=4, W=8).
+     * Directional sprites use cardinal suffix (n, e, s, w). */
+
+    // Path bitmask variants (11 reachable masks for single-path generator)
+    { key: 'tile-path-0', path: 'sprites/tiles/path/tile-path-0.png' },
+    { key: 'tile-path-1', path: 'sprites/tiles/path/tile-path-1.png' },
+    { key: 'tile-path-2', path: 'sprites/tiles/path/tile-path-2.png' },
+    { key: 'tile-path-3', path: 'sprites/tiles/path/tile-path-3.png' },
+    { key: 'tile-path-4', path: 'sprites/tiles/path/tile-path-4.png' },
+    { key: 'tile-path-5', path: 'sprites/tiles/path/tile-path-5.png' },
+    { key: 'tile-path-6', path: 'sprites/tiles/path/tile-path-6.png' },
+    { key: 'tile-path-8', path: 'sprites/tiles/path/tile-path-8.png' },
+    { key: 'tile-path-9', path: 'sprites/tiles/path/tile-path-9.png' },
+    { key: 'tile-path-10', path: 'sprites/tiles/path/tile-path-10.png' },
+    { key: 'tile-path-12', path: 'sprites/tiles/path/tile-path-12.png' },
+
+    // Grass/buildable variants (5 visual variations)
+    { key: 'tile-buildable-1', path: 'sprites/tiles/grass/tile-buildable-1.png' },
+    { key: 'tile-buildable-2', path: 'sprites/tiles/grass/tile-buildable-2.png' },
+    { key: 'tile-buildable-3', path: 'sprites/tiles/grass/tile-buildable-3.png' },
+    { key: 'tile-buildable-4', path: 'sprites/tiles/grass/tile-buildable-4.png' },
+    { key: 'tile-buildable-5', path: 'sprites/tiles/grass/tile-buildable-5.png' },
+
+    // Blocked terrain variants (3 rock/tree formations)
+    { key: 'tile-blocked-1', path: 'sprites/tiles/blocked/tile-blocked-1.png' },
+    { key: 'tile-blocked-2', path: 'sprites/tiles/blocked/tile-blocked-2.png' },
+    { key: 'tile-blocked-3', path: 'sprites/tiles/blocked/tile-blocked-3.png' },
+
+    // Spawn portal directional variants (opening faces named direction)
+    { key: 'tile-spawn-n', path: 'sprites/tiles/spawn/tile-spawn-n.png' },
+    { key: 'tile-spawn-e', path: 'sprites/tiles/spawn/tile-spawn-e.png' },
+    { key: 'tile-spawn-s', path: 'sprites/tiles/spawn/tile-spawn-s.png' },
+    { key: 'tile-spawn-w', path: 'sprites/tiles/spawn/tile-spawn-w.png' },
+
+    // Objective castle directional variants (gate faces named direction)
+    { key: 'tile-objective-n', path: 'sprites/tiles/objective/tile-objective-n.png' },
+    { key: 'tile-objective-e', path: 'sprites/tiles/objective/tile-objective-e.png' },
+    { key: 'tile-objective-s', path: 'sprites/tiles/objective/tile-objective-s.png' },
+    { key: 'tile-objective-w', path: 'sprites/tiles/objective/tile-objective-w.png' },
   ],
 
   spritesheets: [
