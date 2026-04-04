@@ -212,7 +212,7 @@ export interface ProjectileDefinition {
 export interface TowerUpgradeTier {
   /** Which tower type this tier applies to. References TowerDefinition.id. */
   towerId: string;
-  /** Upgrade tier (1 = base stats, 2 = first upgrade, 3 = max). */
+  /** Upgrade tier (1 = base stats, 2 = first upgrade, 3 = max, 4 = specialization). */
   tier: number;
   /** Currency cost to upgrade TO this tier. Tier 1 cost is 0. */
   cost: number;
@@ -224,7 +224,30 @@ export interface TowerUpgradeTier {
   range: number;
   /** Absolute max HP at this tier. */
   maxHp: number;
+  /**
+   * Branch identifier for Tier 4 specialization. 'A' or 'B'.
+   * Absent for Tiers 1-3. BOLT-019.
+   */
+  branch?: TowerBranch;
+  /** Display name for the branch (e.g., "Rapid Fire"). BOLT-019. */
+  branchName?: string;
+  /** Short description of the branch specialization. BOLT-019. */
+  branchDescription?: string;
+  /**
+   * Special effect key for Tier 4 branches. References a known effect
+   * that TowerCombatSystem applies during combat.
+   * Examples: 'pierce', 'twin_shot', 'burn_zone', 'frost_slow',
+   *           'sam_volley', 'ground_adapter'.
+   * Absent for Tiers 1-3. BOLT-019.
+   */
+  specialEffect?: string;
 }
+
+/**
+ * Valid branch identifiers for Tier 4 tower specialization.
+ * 'A' and 'B' are the two mutually exclusive paths. BOLT-019.
+ */
+export type TowerBranch = 'A' | 'B';
 
 /**
  * Effective combat stats for a tower at its current upgrade tier.
@@ -240,6 +263,12 @@ export interface EffectiveTowerStats {
   range: number;
   /** Effective max HP at current tier. */
   maxHp: number;
+  /**
+   * Special effect key for Tier 4 branch abilities. Undefined for Tiers 1-3.
+   * TowerCombatSystem reads this to apply branch-specific combat behavior.
+   * BOLT-019.
+   */
+  specialEffect?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -408,6 +437,12 @@ export interface PlacedTower {
   currentHp: number;
   /** Total currency invested: base cost + sum of all upgrade costs. Used for sell refund. BOLT-007. */
   totalInvested: number;
+  /**
+   * Selected Tier 4 branch, or undefined if tower is below Tier 4.
+   * Set once when the player chooses a specialization path. Permanent
+   * for the tower's lifetime (no respec). BOLT-019.
+   */
+  branch?: TowerBranch;
 }
 
 // ---------------------------------------------------------------------------
@@ -474,6 +509,8 @@ export const GAME_EVENTS = {
   ENEMY_SHIELD_BROKEN: 'ENEMY_SHIELD_BROKEN',
   /** Emitted by BOLT-017 EnemySystem when a shielded enemy's shield finishes regenerating. Listened by VFX hooks. */
   ENEMY_SHIELD_REGENERATED: 'ENEMY_SHIELD_REGENERATED',
+  /** Emitted by BOLT-019 UpgradeSystem when a Tier 4 branch is selected. Listened by BOLT-009 (HUD notification). */
+  TOWER_BRANCH_SELECTED: 'TOWER_BRANCH_SELECTED',
 } as const;
 
 /**
@@ -497,3 +534,32 @@ export const REGISTRY_KEYS = {
  * Produced by AutoTileSystem (BOLT-011), consumed by BOLT-012 and BOLT-013.
  */
 export type TileVariantMap = Map<string, string>;
+
+// ---------------------------------------------------------------------------
+// Status Effects (BOLT-019)
+// ---------------------------------------------------------------------------
+
+/**
+ * Supported status effect types applied to enemies by Tier 4 branches.
+ * BOLT-019: Frost Wave applies SLOW, Inferno Blast applies BURN.
+ */
+export type StatusEffectType = 'slow' | 'burn';
+
+/**
+ * Active status effect on an enemy. Tracked by the StatusEffectSystem
+ * and processed per-frame. Duration is wall-clock (not game-ticks)
+ * to ensure consistent behavior across frame rate variations.
+ * BOLT-019.
+ */
+export interface StatusEffect {
+  /** What type of effect this is. */
+  type: StatusEffectType;
+  /** Remaining duration in seconds. Effect expires when this reaches 0. */
+  remainingDuration: number;
+  /** Original total duration in seconds (for UI/VFX progress display). */
+  totalDuration: number;
+  /** Effect-specific magnitude. For 'slow': speed multiplier (0.7 = 30% slow). For 'burn': DPS. */
+  magnitude: number;
+  /** Instance ID of the tower that applied this effect. For damage attribution. */
+  sourceTowerId: string;
+}

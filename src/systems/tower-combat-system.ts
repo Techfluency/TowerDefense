@@ -20,7 +20,7 @@
  */
 import Phaser from 'phaser';
 import { BaseSystem } from './base-system';
-import type { GameState, PlacedTower, TowerDefinition } from '../types/game-types';
+import type { GameState, PlacedTower, TowerDefinition, EffectiveTowerStats } from '../types/game-types';
 import { GAME_EVENTS } from '../types/game-types';
 import type { TowerFiredPayload, EnemyHitPayload } from '../types/events';
 import type { ConfigManager } from '../utils/config-manager';
@@ -28,6 +28,7 @@ import { resolveEffectiveStats } from '../utils/stat-resolver';
 import type { TowerRegistry } from './tower-registry';
 import type { EnemySystem } from './enemy-system';
 import type { ProjectileSystem } from './projectile-system';
+import type { StatusEffectSystem } from './status-effect-system';
 import { Enemy } from '../entities/enemy';
 import {
   DEPTH_PROJECTILES,
@@ -53,6 +54,25 @@ const COLOR_TOWER_BROADCAST = 0x4AD9B0;
 /** Hover range circle visual style (matches BOLT-005 RangePreviewCircle). */
 const RANGE_CIRCLE_ALPHA = 0.35;
 const RANGE_CIRCLE_LINE_WIDTH = 1.5;
+
+// ---------------------------------------------------------------------------
+// BOLT-019: Tier 4 branch effect constants
+// ---------------------------------------------------------------------------
+
+/** Frost Wave slow: 30% speed reduction (multiplier = 0.7). */
+const FROST_SLOW_MAGNITUDE = 0.7;
+
+/** Frost Wave slow duration in seconds. */
+const FROST_SLOW_DURATION_SEC = 2.0;
+
+/** Inferno Blast burn zone DPS (damage per second). */
+const BURN_ZONE_DPS = 20;
+
+/** Inferno Blast burn zone duration in seconds. */
+const BURN_ZONE_DURATION_SEC = 1.0;
+
+/** Piercing Arrow: number of enemies the arrow passes through. */
+const PIERCE_COUNT = 2;
 
 // ---------------------------------------------------------------------------
 // Per-tower combat state (internal to this system, keyed by instanceId)
@@ -91,6 +111,9 @@ export class TowerCombatSystem extends BaseSystem {
   /** VFX manager for muzzle flash, recoil, shockwave particles. BOLT-014. */
   private vfxManager: VFXManager | null = null;
 
+  /** Status effect system for applying slow/burn from Tier 4 branches. BOLT-019. */
+  private statusEffectSystem: StatusEffectSystem | null = null;
+
   /**
    * @param scene - The Gameplay scene.
    * @param gameState - Shared per-run game state.
@@ -118,6 +141,9 @@ export class TowerCombatSystem extends BaseSystem {
 
     /* BOLT-014: Resolve VFX manager for muzzle flash and shockwave VFX. */
     this.vfxManager = (this.scene.registry.get('vfxManager') as VFXManager) ?? null;
+
+    /* BOLT-019: Resolve status effect system for Tier 4 branch effects. */
+    this.statusEffectSystem = (this.scene.registry.get('statusEffectSystem') as StatusEffectSystem) ?? null;
 
     /* Listen for GAME_OVER to halt combat. */
     this.listen(GAME_EVENTS.GAME_OVER, this.onGameOver as (...args: never[]) => void);
@@ -168,7 +194,8 @@ export class TowerCombatSystem extends BaseSystem {
       }
 
       /* --- Target acquisition (uses effective range) --- */
-      const target = this.acquireTarget(tower, def, activeEnemies, state, stats.range);
+      /* BOLT-019: Ground Adapter branch allows anti-air towers to target ground enemies. */
+      const target = this.acquireTarget(tower, def, activeEnemies, state, stats.range, stats);
 
       if (!target) {
         /* No valid target: reset state to idle. */
@@ -193,8 +220,8 @@ export class TowerCombatSystem extends BaseSystem {
       if (state.cooldownAccumulator >= firePeriod) {
         state.cooldownAccumulator -= firePeriod;
 
-        /* Fire based on tower class (uses effective damage). */
-        this.fireTower(tower, def, target, stats.damage, stats.range);
+        /* Fire based on tower class (uses effective damage). BOLT-019: pass full stats for branch effects. */
+        this.fireTower(tower, def, target, stats);
       }
     }
 
@@ -243,6 +270,7 @@ export class TowerCombatSystem extends BaseSystem {
    *
    * Filtering rules per tower class:
    * - antiair: only flying enemies (isFlying === true)
+   *   - BOLT-019: Ground Adapter branch removes this restriction
    * - broadcast: only ground enemies (isFlying === false)
    * - ranged/focused: all enemies
    *
@@ -252,6 +280,7 @@ export class TowerCombatSystem extends BaseSystem {
    * - closest: shortest distance to tower
    *
    * @param effectiveRange - The tower's effective range after upgrades.
+   * @param stats - Full effective stats including specialEffect for branch overrides.
    * @returns The selected enemy, or null if no valid target exists.
    */
   private acquireTarget(
@@ -260,6 +289,7 @@ export class TowerCombatSystem extends BaseSystem {
     activeEnemies: Enemy[],
     state: TowerCombatState,
     effectiveRange: number,
+    stats?: EffectiveTowerStats,
   ): Enemy | null {
     const rangeSq = effectiveRange * effectiveRange;
     const candidates: Enemy[] = [];
@@ -271,8 +301,10 @@ export class TowerCombatSystem extends BaseSystem {
       const distSq = dx * dx + dy * dy;
       if (distSq > rangeSq) continue;
 
-      /* Tower-class filtering. */
-      if (def.towerClass === 'antiair' && !enemy.isFlying) continue;
+      /* Tower-class filtering.
+       * BOLT-019: Ground Adapter (antiair 4B) can target both ground and air. */
+      const isGroundAdapter = stats?.specialEffect === 'ground_adapter';
+      if (def.towerClass === 'antiair' && !enemy.isFlying && !isGroundAdapter) continue;
       if (def.towerClass === 'broadcast' && enemy.isFlying) continue;
 
       candidates.push(enemy);
@@ -351,19 +383,29 @@ export class TowerCombatSystem extends BaseSystem {
   // ---------------------------------------------------------------------------
 
   /**
-   * Dispatches the fire action based on tower class. Emits TOWER_FIRED.
-   * BOLT-014: Adds muzzle flash particles and recoil animation on fire.
+   * Dispatches the fire action based on tower class and Tier 4 branch effects.
+   * Emits TOWER_FIRED. BOLT-014: Adds muzzle flash particles and recoil.
    *
-   * @param effectiveDamage - The tower's effective damage after upgrades.
-   * @param effectiveRange - The tower's effective range after upgrades (for broadcast).
+   * BOLT-019: Reads stats.specialEffect to apply branch-specific combat behavior:
+   * - pierce: Arrow passes through PIERCE_COUNT enemies
+   * - twin_shot: Sniper fires 2 hitscan beams per attack
+   * - burn_zone: Broadcast leaves a brief burn damage zone on enemies
+   * - frost_slow: Broadcast applies slow debuff to hit enemies
+   * - sam_volley: AA fires 2 missiles per volley
+   * - ground_adapter: AA can target ground (handled in acquireTarget)
+   *
+   * @param stats - Full effective stats including damage, range, and specialEffect.
    */
   private fireTower(
     tower: PlacedTower,
     def: TowerDefinition,
     target: Enemy,
-    effectiveDamage: number,
-    effectiveRange: number,
+    stats: EffectiveTowerStats,
   ): void {
+    const effectiveDamage = stats.damage;
+    const effectiveRange = stats.range;
+    const effect = stats.specialEffect;
+
     /* Emit TOWER_FIRED event. */
     const firedPayload: TowerFiredPayload = {
       towerId: tower.instanceId,
@@ -381,19 +423,44 @@ export class TowerCombatSystem extends BaseSystem {
 
     switch (def.towerClass) {
       case 'ranged':
-        this.fireProjectile(tower, def, target, effectiveDamage);
+        if (effect === 'pierce') {
+          /* BOLT-019 4B: Piercing Arrow -- hits target + passes through additional enemies. */
+          this.firePiercingArrow(tower, def, target, effectiveDamage, effectiveRange);
+        } else {
+          this.fireProjectile(tower, def, target, effectiveDamage);
+        }
         break;
 
       case 'focused':
-        this.fireHitscan(tower, target, effectiveDamage);
+        if (effect === 'twin_shot') {
+          /* BOLT-019 4B: Twin Shot -- fire hitscan twice. */
+          this.fireHitscan(tower, target, effectiveDamage);
+          this.fireHitscanSecondary(tower, effectiveDamage, effectiveRange);
+        } else {
+          this.fireHitscan(tower, target, effectiveDamage);
+        }
         break;
 
       case 'broadcast':
+        /* Base broadcast fire for all broadcast variants. */
         this.fireBroadcast(tower, effectiveDamage, effectiveRange);
+
+        /* BOLT-019: Apply branch-specific effects after the base broadcast. */
+        if (effect === 'burn_zone') {
+          this.applyBurnZone(tower, effectiveRange);
+        } else if (effect === 'frost_slow') {
+          this.applyFrostSlow(tower, effectiveRange);
+        }
         break;
 
       case 'antiair':
+        /* Fire the primary missile. */
         this.fireProjectile(tower, def, target, effectiveDamage);
+
+        /* BOLT-019 4A: SAM Battery -- fire a second missile at the same target. */
+        if (effect === 'sam_volley') {
+          this.fireProjectile(tower, def, target, effectiveDamage);
+        }
         break;
     }
   }
@@ -569,6 +636,152 @@ export class TowerCombatSystem extends BaseSystem {
       },
       onComplete: () => gfx.destroy(),
     });
+  }
+
+  // ---------------------------------------------------------------------------
+  // BOLT-019: Tier 4 branch-specific fire methods
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Piercing Arrow (Ranged 4B): Damages the primary target, then hits up to
+   * PIERCE_COUNT additional enemies along the arrow's flight path.
+   * Uses hitscan for pierce targets (no separate projectile entities).
+   */
+  private firePiercingArrow(
+    tower: PlacedTower,
+    def: TowerDefinition,
+    primaryTarget: Enemy,
+    effectiveDamage: number,
+    effectiveRange: number,
+  ): void {
+    /* Fire the main projectile at the primary target. */
+    this.fireProjectile(tower, def, primaryTarget, effectiveDamage);
+
+    /* Find additional enemies along the trajectory for pierce-through.
+     * We look for enemies near the line from tower to primary target. */
+    const activeEnemies = this.enemySystem.getActiveEnemies();
+    const rangeSq = effectiveRange * effectiveRange;
+    const primaryPos = primaryTarget.getPosition();
+    let pierced = 0;
+
+    for (const enemy of activeEnemies) {
+      if (pierced >= PIERCE_COUNT) break;
+      if (enemy.instanceId === primaryTarget.instanceId) continue;
+      if (!enemy.isAlive()) continue;
+
+      /* Check range from tower. */
+      const dx = enemy.sprite.x - tower.worldX;
+      const dy = enemy.sprite.y - tower.worldY;
+      if (dx * dx + dy * dy > rangeSq) continue;
+
+      /* Check proximity to the line from tower to primary target.
+       * Use point-to-line distance with a generous threshold (32px). */
+      const lineLen = Math.sqrt(
+        (primaryPos.x - tower.worldX) ** 2 + (primaryPos.y - tower.worldY) ** 2,
+      );
+      if (lineLen < 1) continue;
+
+      const cross = Math.abs(
+        (primaryPos.x - tower.worldX) * (tower.worldY - enemy.sprite.y) -
+        (tower.worldX - enemy.sprite.x) * (primaryPos.y - tower.worldY),
+      );
+      const dist = cross / lineLen;
+      if (dist > 32) continue;
+
+      /* Apply pierce damage via hitscan (50% of base damage for balance). */
+      const pierceDamage = Math.floor(effectiveDamage * 0.5);
+      this.enemySystem.applyDamageToEnemy(enemy.instanceId, pierceDamage, 'physical');
+
+      const pos = enemy.getPosition();
+      const hitPayload: EnemyHitPayload = {
+        enemyId: enemy.instanceId,
+        projectileType: 'none',
+        damage: pierceDamage,
+        position: { x: pos.x, y: pos.y },
+      };
+      this.emit(GAME_EVENTS.ENEMY_HIT, hitPayload);
+      pierced++;
+    }
+  }
+
+  /**
+   * Twin Shot secondary beam (Focused 4B): Fires a second hitscan beam at
+   * a different enemy in range, or the same target if no other is available.
+   */
+  private fireHitscanSecondary(
+    tower: PlacedTower,
+    effectiveDamage: number,
+    effectiveRange: number,
+  ): void {
+    const activeEnemies = this.enemySystem.getActiveEnemies();
+    const rangeSq = effectiveRange * effectiveRange;
+
+    /* Find any enemy in range (not the primary -- if possible). */
+    let secondaryTarget: Enemy | null = null;
+    for (const enemy of activeEnemies) {
+      if (!enemy.isAlive()) continue;
+      const dx = enemy.sprite.x - tower.worldX;
+      const dy = enemy.sprite.y - tower.worldY;
+      if (dx * dx + dy * dy > rangeSq) continue;
+      secondaryTarget = enemy;
+      break;
+    }
+
+    if (secondaryTarget) {
+      this.fireHitscan(tower, secondaryTarget, effectiveDamage);
+    }
+  }
+
+  /**
+   * Burn Zone (Broadcast 4A): Applies a brief burn status effect to all
+   * ground enemies currently within the tower's range.
+   */
+  private applyBurnZone(tower: PlacedTower, effectiveRange: number): void {
+    if (!this.statusEffectSystem) return;
+
+    const activeEnemies = this.enemySystem.getActiveEnemies();
+    const rangeSq = effectiveRange * effectiveRange;
+
+    for (const enemy of activeEnemies) {
+      if (enemy.isFlying) continue;
+      const dx = enemy.sprite.x - tower.worldX;
+      const dy = enemy.sprite.y - tower.worldY;
+      if (dx * dx + dy * dy > rangeSq) continue;
+
+      this.statusEffectSystem.applyEffect(
+        enemy.instanceId,
+        'burn',
+        BURN_ZONE_DURATION_SEC,
+        BURN_ZONE_DPS,
+        tower.instanceId,
+      );
+    }
+  }
+
+  /**
+   * Frost Slow (Broadcast 4B): Applies a slow status effect to all
+   * ground enemies currently within the tower's range.
+   */
+  private applyFrostSlow(tower: PlacedTower, effectiveRange: number): void {
+    if (!this.statusEffectSystem) return;
+
+    const activeEnemies = this.enemySystem.getActiveEnemies();
+    const rangeSq = effectiveRange * effectiveRange;
+
+    for (const enemy of activeEnemies) {
+      if (enemy.isFlying) continue;
+      const dx = enemy.sprite.x - tower.worldX;
+      const dy = enemy.sprite.y - tower.worldY;
+      if (dx * dx + dy * dy > rangeSq) continue;
+
+      this.statusEffectSystem.applyEffect(
+        enemy.instanceId,
+        'slow',
+        FROST_SLOW_DURATION_SEC,
+        FROST_SLOW_MAGNITUDE,
+        tower.instanceId,
+      );
+    }
   }
 
   // ---------------------------------------------------------------------------

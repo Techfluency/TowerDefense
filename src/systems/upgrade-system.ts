@@ -33,9 +33,11 @@ import type {
 import type { ConfigManager } from '../utils/config-manager';
 import type { TowerRegistry } from './tower-registry';
 import type { EconomySystem } from './economy-system';
-import { resolveEffectiveStats } from '../utils/stat-resolver';
+import { resolveEffectiveStats, getBranchOptions } from '../utils/stat-resolver';
 import { DEPTH_TOWER_HEALTH_BARS, DEPTH_UI } from '../config/depth-layers';
 import type { VFXManager } from '../vfx/vfx-manager';
+import type { TowerBranchSelectedPayload } from '../types/events';
+import type { TowerBranch } from '../types/game-types';
 import { scaleIn } from '../ui/ui-animations';
 
 // ---------------------------------------------------------------------------
@@ -75,7 +77,7 @@ const COLOR_TIER_3_BADGE = '#FF6B35';
 const COLOR_DISABLED_ALPHA = 0.4;
 const COLOR_DAMAGE_RED = 0xFF4444;
 
-/** Tier visual properties: tints per tower type per tier. */
+/** Tier visual properties: tints per tower type per tier (Tiers 1-3). */
 const TIER_TINTS: Record<string, [number, number, number]> = {
   ranged:    [0xFFFFFF, 0xCCDDFF, 0xAABBFF],
   focused:   [0xFFFFFF, 0xCCCCFF, 0xAAAAFF],
@@ -83,8 +85,27 @@ const TIER_TINTS: Record<string, [number, number, number]> = {
   antiair:   [0xFFFFFF, 0xCCDDFF, 0xAABBFF],
 };
 
-/** Tier scale values. */
+/**
+ * BOLT-019: Tier 4 branch tint colors. Each tower type has distinct
+ * tints for branch A and B to visually differentiate specializations.
+ */
+const TIER4_BRANCH_TINTS: Record<string, { A: number; B: number }> = {
+  ranged:    { A: 0xFF8888, B: 0x88BBFF },
+  focused:   { A: 0xFFCC44, B: 0x88FF88 },
+  broadcast: { A: 0xFF6622, B: 0x44CCFF },
+  antiair:   { A: 0xFF4444, B: 0x44FF44 },
+};
+
+/** Tier scale values (Tiers 1-3). */
 const TIER_SCALES: [number, number, number] = [1.0, 1.1, 1.2];
+
+/** BOLT-019: Tier 4 scale value -- slightly larger than Tier 3. */
+const TIER4_SCALE = 1.3;
+
+/** BOLT-019: Branch panel button colors. */
+const BTN_BRANCH_A_COLOR = 0x3A2A5A;
+const BTN_BRANCH_B_COLOR = 0x2A4A3A;
+const COLOR_TIER_4_BADGE = '#FF44FF';
 
 /** Upgrade flash animation durations. */
 const FLASH_DURATION_MS = 200;
@@ -356,8 +377,14 @@ export class UpgradeSystem extends BaseSystem {
   private buildPanel(tower: PlacedTower): void {
     const stats = resolveEffectiveStats(tower, this.configManager);
     const upgrades = this.configManager.getUpgrades(tower.towerType);
-    const nextTier = upgrades.find(u => u.tier === tower.upgradeLevel + 1);
-    const isMaxTier = tower.upgradeLevel >= 3;
+    /* BOLT-019: For Tiers 1-2, next tier is a linear upgrade.
+     * For Tier 3, next is a branch selection (not a simple upgrade).
+     * For Tier 4, the tower is at max level. */
+    const nextTier = tower.upgradeLevel < 3
+      ? upgrades.find(u => u.tier === tower.upgradeLevel + 1 && !u.branch)
+      : undefined;
+    const isMaxTier = tower.upgradeLevel >= 4;
+    const isAtBranchPoint = tower.upgradeLevel === 3 && !tower.branch;
     const def = this.configManager.getTower(tower.towerType);
 
     /* Calculate panel position: above-left of tower, clamped to canvas. */
@@ -370,8 +397,16 @@ export class UpgradeSystem extends BaseSystem {
 
     /* --- Header: tower name + tier badge --- */
     const displayName = DISPLAY_NAMES[tower.towerType] ?? def.name;
-    const tierLabel = isMaxTier ? 'MAX LEVEL' : `Tier ${tower.upgradeLevel}`;
-    const tierColor = isMaxTier ? COLOR_TIER_3_BADGE
+    /* BOLT-019: Show branch name for Tier 4 towers instead of generic tier label. */
+    const branchData = tower.branch
+      ? upgrades.find(u => u.tier === 4 && u.branch === tower.branch)
+      : undefined;
+    const tierLabel = isMaxTier
+      ? (branchData?.branchName ?? 'MAX LEVEL')
+      : isAtBranchPoint ? 'Tier 3 - SPECIALIZE'
+      : `Tier ${tower.upgradeLevel}`;
+    const tierColor = isMaxTier ? COLOR_TIER_4_BADGE
+      : isAtBranchPoint ? COLOR_TIER_3_BADGE
       : tower.upgradeLevel >= 2 ? COLOR_CURRENCY : COLOR_TEXT_PRIMARY;
 
     const nameText = this.scene.add.text(PANEL_PADDING, yPos, displayName, {
@@ -477,8 +512,8 @@ export class UpgradeSystem extends BaseSystem {
     elements.push(sep2);
     yPos += 6;
 
-    /* --- Upgrade button (only below tier 3) --- */
-    if (!isMaxTier && nextTier) {
+    /* --- Upgrade button (Tiers 1-2 only -- linear upgrade) --- */
+    if (!isMaxTier && !isAtBranchPoint && nextTier) {
       const canAffordUpgrade = this.gameState.currency >= nextTier.cost;
       const { container: upgradeBtn, bg: upgradeBg, label: upgradeLabel } = this.createButton(
         PANEL_PADDING, yPos, BTN_FULL_WIDTH, BTN_UPGRADE_HEIGHT,
@@ -491,6 +526,62 @@ export class UpgradeSystem extends BaseSystem {
       this.panelElements.upgradeBtnBg = upgradeBg;
       this.panelElements.upgradeBtnText = upgradeLabel;
       yPos += BTN_UPGRADE_HEIGHT + BTN_GAP;
+    }
+
+    /* --- BOLT-019: Branch selection buttons (at Tier 3) --- */
+    if (isAtBranchPoint) {
+      const { branchA, branchB } = getBranchOptions(tower.towerType, this.configManager);
+
+      /* "Choose Specialization" header. */
+      const branchHeader = this.scene.add.text(PANEL_PADDING, yPos, 'Choose Specialization:', {
+        fontSize: '11px', fontFamily: 'monospace', fontStyle: 'bold', color: COLOR_TIER_3_BADGE,
+      });
+      elements.push(branchHeader);
+      yPos += 16;
+
+      /* Branch A button. */
+      if (branchA) {
+        const canAffordA = this.gameState.currency >= branchA.cost;
+        const labelA = `${branchA.branchName}: ${branchA.cost}g`;
+        const { container: btnA } = this.createButton(
+          PANEL_PADDING, yPos, BTN_FULL_WIDTH, BTN_UPGRADE_HEIGHT,
+          labelA, '11px', BTN_BRANCH_A_COLOR,
+          canAffordA,
+          () => this.executeBranchUpgrade('A'),
+        );
+        elements.push(btnA);
+        yPos += BTN_UPGRADE_HEIGHT + 2;
+
+        /* Branch A description. */
+        const descA = this.scene.add.text(PANEL_PADDING + 4, yPos, branchA.branchDescription ?? '', {
+          fontSize: '9px', fontFamily: 'monospace', color: COLOR_TEXT_PRIMARY,
+          wordWrap: { width: BTN_FULL_WIDTH - 8 },
+        });
+        elements.push(descA);
+        yPos += descA.height + 4;
+      }
+
+      /* Branch B button. */
+      if (branchB) {
+        const canAffordB = this.gameState.currency >= branchB.cost;
+        const labelB = `${branchB.branchName}: ${branchB.cost}g`;
+        const { container: btnB } = this.createButton(
+          PANEL_PADDING, yPos, BTN_FULL_WIDTH, BTN_UPGRADE_HEIGHT,
+          labelB, '11px', BTN_BRANCH_B_COLOR,
+          canAffordB,
+          () => this.executeBranchUpgrade('B'),
+        );
+        elements.push(btnB);
+        yPos += BTN_UPGRADE_HEIGHT + 2;
+
+        /* Branch B description. */
+        const descB = this.scene.add.text(PANEL_PADDING + 4, yPos, branchB.branchDescription ?? '', {
+          fontSize: '9px', fontFamily: 'monospace', color: COLOR_TEXT_PRIMARY,
+          wordWrap: { width: BTN_FULL_WIDTH - 8 },
+        });
+        elements.push(descB);
+        yPos += descB.height + 4;
+      }
     }
 
     /* --- Repair button --- */
@@ -633,10 +724,11 @@ export class UpgradeSystem extends BaseSystem {
     if (!this.selectedTowerId) return;
 
     const tower = this.towerRegistry.getTowerById(this.selectedTowerId);
+    /* BOLT-019: Linear upgrades go up to Tier 3 only. Tier 4 uses executeBranchUpgrade. */
     if (!tower || tower.upgradeLevel >= 3) return;
 
     const upgrades = this.configManager.getUpgrades(tower.towerType);
-    const nextTier = upgrades.find(u => u.tier === tower.upgradeLevel + 1);
+    const nextTier = upgrades.find(u => u.tier === tower.upgradeLevel + 1 && !u.branch);
     if (!nextTier) return;
 
     /* Deduct currency via EconomySystem (BOLT-008 owns all currency mutations). */
@@ -687,6 +779,101 @@ export class UpgradeSystem extends BaseSystem {
 
     /* Refresh the panel to show new tier. */
     this.refreshPanel();
+  }
+
+  // ---------------------------------------------------------------------------
+  // BOLT-019: Branch upgrade execution
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Executes a Tier 4 branch upgrade on the currently selected tower.
+   * Called when the player selects branch A or B from the specialization panel.
+   *
+   * This is a permanent choice: once a branch is selected, the tower cannot
+   * switch to the other branch. The branch is stored on the PlacedTower.
+   *
+   * @param branch - The selected branch ('A' or 'B').
+   */
+  private executeBranchUpgrade(branch: TowerBranch): void {
+    if (!this.selectedTowerId) return;
+
+    const tower = this.towerRegistry.getTowerById(this.selectedTowerId);
+    /* Only Tier 3 towers without an existing branch can specialize. */
+    if (!tower || tower.upgradeLevel !== 3 || tower.branch) return;
+
+    const upgrades = this.configManager.getUpgrades(tower.towerType);
+    const branchData = upgrades.find(u => u.tier === 4 && u.branch === branch);
+    if (!branchData) return;
+
+    /* Deduct currency via EconomySystem. */
+    if (this.economySystem) {
+      const success = this.economySystem.trySpend(branchData.cost, 'tower_upgrade');
+      if (!success) return;
+    } else if (this.gameState.currency < branchData.cost) {
+      return;
+    }
+
+    /* Update tower state: set branch and upgrade to Tier 4. */
+    tower.branch = branch;
+    tower.upgradeLevel = 4;
+    tower.totalInvested += branchData.cost;
+
+    /* Adjust HP proportionally, same logic as linear upgrade. */
+    const oldMaxHp = resolveEffectiveStats(
+      { towerType: tower.towerType, upgradeLevel: 3 },
+      this.configManager,
+    ).maxHp;
+    const newMaxHp = branchData.maxHp;
+    if (tower.currentHp >= oldMaxHp) {
+      tower.currentHp = newMaxHp;
+    } else {
+      const ratio = tower.currentHp / oldMaxHp;
+      tower.currentHp = Math.round(ratio * newMaxHp);
+    }
+
+    /* Update registry. */
+    this.towerRegistry.upgradeTower(tower.instanceId, 4);
+
+    /* Apply Tier 4 branch visuals (distinct tint + scale). */
+    this.applyTier4Visuals(tower);
+
+    /* Play upgrade flash animation. */
+    this.playUpgradeAnimation(tower);
+
+    /* Emit TOWER_UPGRADED event with branch info. */
+    const upgradePayload: TowerUpgradedPayload = {
+      towerId: tower.instanceId,
+      towerType: tower.towerType,
+      newTier: 4,
+      cost: branchData.cost,
+      branch,
+    };
+    this.emit(GAME_EVENTS.TOWER_UPGRADED, upgradePayload);
+
+    /* Emit TOWER_BRANCH_SELECTED for branch-specific notifications. */
+    const branchPayload: TowerBranchSelectedPayload = {
+      towerId: tower.instanceId,
+      towerType: tower.towerType,
+      branch,
+      branchName: branchData.branchName ?? `Branch ${branch}`,
+      cost: branchData.cost,
+    };
+    this.emit(GAME_EVENTS.TOWER_BRANCH_SELECTED, branchPayload);
+
+    /* Refresh the panel to show Tier 4 state. */
+    this.refreshPanel();
+  }
+
+  /**
+   * Applies Tier 4 branch-specific visual styling to a tower sprite.
+   * BOLT-019: Distinct tint per branch + larger scale than Tier 3.
+   */
+  private applyTier4Visuals(tower: PlacedTower): void {
+    const branchTints = TIER4_BRANCH_TINTS[tower.towerType];
+    if (branchTints && tower.branch) {
+      tower.sprite.setTint(branchTints[tower.branch]);
+    }
+    tower.sprite.setScale(TIER4_SCALE);
   }
 
   // ---------------------------------------------------------------------------
@@ -783,6 +970,12 @@ export class UpgradeSystem extends BaseSystem {
    * Called after upgrade and after repair (to restore tier visuals).
    */
   private applyTierVisuals(tower: PlacedTower): void {
+    /* BOLT-019: Tier 4 has branch-specific visuals handled by applyTier4Visuals. */
+    if (tower.upgradeLevel === 4 && tower.branch) {
+      this.applyTier4Visuals(tower);
+      return;
+    }
+
     const tierIndex = tower.upgradeLevel - 1;
     const tints = TIER_TINTS[tower.towerType] ?? [0xFFFFFF, 0xFFFFFF, 0xFFFFFF];
     const tint = tints[tierIndex] ?? 0xFFFFFF;

@@ -221,6 +221,26 @@ export interface TowerUpgradedPayload {
   newTier: number;
   /** Currency spent on the upgrade. */
   cost: number;
+  /** Branch selected for Tier 4 upgrades. Undefined for Tiers 1-3. BOLT-019. */
+  branch?: import('../types/game-types').TowerBranch;
+}
+
+/**
+ * Payload for TOWER_BRANCH_SELECTED event.
+ * Emitted by BOLT-019 (Upgrade System) when a Tier 4 specialization branch is chosen.
+ * Listened by BOLT-009 (HUD notification).
+ */
+export interface TowerBranchSelectedPayload {
+  /** Instance ID of the tower. */
+  towerId: string;
+  /** References TowerDefinition.id. */
+  towerType: string;
+  /** The branch selected ('A' or 'B'). */
+  branch: import('../types/game-types').TowerBranch;
+  /** Display name of the branch (e.g., "Rapid Fire"). */
+  branchName: string;
+  /** Currency spent on the branch upgrade. */
+  cost: number;
 }
 
 /**

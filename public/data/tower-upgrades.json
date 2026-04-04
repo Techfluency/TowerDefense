@@ -2,16 +2,24 @@
   { "towerId": "ranged",    "tier": 1, "cost": 0,   "damage": 10,  "fireRate": 1.5, "range": 200, "maxHp": 200 },
   { "towerId": "ranged",    "tier": 2, "cost": 40,  "damage": 18,  "fireRate": 1.8, "range": 220, "maxHp": 250 },
   { "towerId": "ranged",    "tier": 3, "cost": 70,  "damage": 28,  "fireRate": 2.2, "range": 240, "maxHp": 300 },
+  { "towerId": "ranged",    "tier": 4, "cost": 120, "damage": 22,  "fireRate": 3.5, "range": 250, "maxHp": 350, "branch": "A", "branchName": "Rapid Fire",     "branchDescription": "Extreme attack speed at reduced damage per hit.",       "specialEffect": "rapid_fire" },
+  { "towerId": "ranged",    "tier": 4, "cost": 120, "damage": 45,  "fireRate": 1.8, "range": 260, "maxHp": 350, "branch": "B", "branchName": "Piercing Arrow",  "branchDescription": "High-damage arrows that pass through 2 enemies.",       "specialEffect": "pierce" },
 
   { "towerId": "focused",   "tier": 1, "cost": 0,   "damage": 40,  "fireRate": 0.5, "range": 350, "maxHp": 150 },
   { "towerId": "focused",   "tier": 2, "cost": 60,  "damage": 65,  "fireRate": 0.6, "range": 380, "maxHp": 200 },
   { "towerId": "focused",   "tier": 3, "cost": 100, "damage": 100, "fireRate": 0.7, "range": 420, "maxHp": 250 },
+  { "towerId": "focused",   "tier": 4, "cost": 150, "damage": 180, "fireRate": 0.35,"range": 500, "maxHp": 300, "branch": "A", "branchName": "Marksman",        "branchDescription": "Extreme range and damage at very slow fire rate.",      "specialEffect": "marksman" },
+  { "towerId": "focused",   "tier": 4, "cost": 150, "damage": 70,  "fireRate": 0.7, "range": 420, "maxHp": 300, "branch": "B", "branchName": "Twin Shot",       "branchDescription": "Fires 2 hitscan beams per attack for sustained DPS.",   "specialEffect": "twin_shot" },
 
   { "towerId": "broadcast",  "tier": 1, "cost": 0,   "damage": 15,  "fireRate": 0.8, "range": 128, "maxHp": 250 },
   { "towerId": "broadcast",  "tier": 2, "cost": 50,  "damage": 25,  "fireRate": 1.0, "range": 144, "maxHp": 320 },
   { "towerId": "broadcast",  "tier": 3, "cost": 85,  "damage": 38,  "fireRate": 1.2, "range": 160, "maxHp": 400 },
+  { "towerId": "broadcast",  "tier": 4, "cost": 130, "damage": 50,  "fireRate": 1.2, "range": 192, "maxHp": 480, "branch": "A", "branchName": "Inferno Blast",   "branchDescription": "Larger blast radius; leaves a brief burn damage zone.", "specialEffect": "burn_zone" },
+  { "towerId": "broadcast",  "tier": 4, "cost": 130, "damage": 30,  "fireRate": 1.2, "range": 144, "maxHp": 480, "branch": "B", "branchName": "Frost Wave",      "branchDescription": "Enemies hit are slowed by 30% for 2 seconds.",         "specialEffect": "frost_slow" },
 
   { "towerId": "antiair",   "tier": 1, "cost": 0,   "damage": 25,  "fireRate": 1.0, "range": 250, "maxHp": 180 },
   { "towerId": "antiair",   "tier": 2, "cost": 45,  "damage": 40,  "fireRate": 1.2, "range": 280, "maxHp": 230 },
-  { "towerId": "antiair",   "tier": 3, "cost": 80,  "damage": 60,  "fireRate": 1.5, "range": 310, "maxHp": 280 }
+  { "towerId": "antiair",   "tier": 3, "cost": 80,  "damage": 60,  "fireRate": 1.5, "range": 310, "maxHp": 280 },
+  { "towerId": "antiair",   "tier": 4, "cost": 140, "damage": 55,  "fireRate": 1.5, "range": 330, "maxHp": 330, "branch": "A", "branchName": "SAM Battery",     "branchDescription": "Fires 2 missiles per volley for double damage output.", "specialEffect": "sam_volley" },
+  { "towerId": "antiair",   "tier": 4, "cost": 140, "damage": 40,  "fireRate": 1.2, "range": 300, "maxHp": 330, "branch": "B", "branchName": "Ground Adapter",  "branchDescription": "Targets both ground and air enemies at reduced damage.","specialEffect": "ground_adapter" }
 ]
