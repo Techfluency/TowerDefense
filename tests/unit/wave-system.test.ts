@@ -52,6 +52,9 @@ function createMockGameState(): GameState {
     isPaused: false,
     isGameOver: false,
     gameSeed: 'test-seed',
+    gameMode: 'stage',
+    highestWaveReached: 0,
+    campaignComplete: false,
   };
 }
 
@@ -851,10 +854,10 @@ describe('WaveSystem', () => {
   // -------------------------------------------------------------------------
 
   describe('generateEndlessWave', () => {
-    it('should throw "not implemented" in Phase 1', () => {
+    it('should throw when endless config is not loaded', () => {
       waveSystem.init();
       expect(() => waveSystem.generateEndlessWave(21)).toThrow(
-        'Endless mode not implemented in Phase 1',
+        'Endless mode config not loaded',
       );
     });
   });

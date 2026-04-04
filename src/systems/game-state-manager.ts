@@ -61,6 +61,17 @@ export interface GameOverData {
   totalKills: number;
   objectiveHpRemaining: number;
   isNewSessionBest: boolean;
+  /**
+   * Highest wave reached in the run. BOLT-020.
+   * In stage mode this equals wavesSurvived. In endless mode this is
+   * the final wave reached before defeat.
+   */
+  highestWaveReached: number;
+  /**
+   * Whether the player completed the campaign (waves 1-20) before the run ended. BOLT-020.
+   * True in endless mode runs that made it past wave 20. Always true for stage mode victories.
+   */
+  campaignComplete: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -283,7 +294,8 @@ export class GameStateManager extends BaseSystem {
     /* Compute session-best before scene transition. */
     const isNewSessionBest = this.updateSessionBest(runStats.finalScore);
 
-    /* Build GameOverData for the results screen. */
+    /* Build GameOverData for the results screen.
+     * BOLT-020: Include highestWaveReached and campaignComplete status. */
     const gameOverData: GameOverData = {
       victory: false,
       score: runStats.finalScore,
@@ -291,7 +303,12 @@ export class GameStateManager extends BaseSystem {
       totalKills: runStats.totalKills,
       objectiveHpRemaining: 0,
       isNewSessionBest,
+      highestWaveReached: this.gameState.highestWaveReached,
+      campaignComplete: this.gameState.campaignComplete,
     };
+
+    /* BOLT-020: Update session-best highest wave reached. */
+    this.updateSessionBestWave(this.gameState.highestWaveReached);
 
     /* Store gameOverData on registry as a reliable fallback.
      * Phaser's scene.start data parameter can be lost when the
@@ -332,6 +349,7 @@ export class GameStateManager extends BaseSystem {
     /* Compute session-best before scene transition. */
     const isNewSessionBest = this.updateSessionBest(runStats.finalScore);
 
+    /* BOLT-020: Include highestWaveReached and campaignComplete in victory data. */
     const gameOverData: GameOverData = {
       victory: true,
       score: runStats.finalScore,
@@ -339,7 +357,12 @@ export class GameStateManager extends BaseSystem {
       totalKills: runStats.totalKills,
       objectiveHpRemaining: this.gameState.objectiveHp,
       isNewSessionBest,
+      highestWaveReached: this.gameState.highestWaveReached,
+      campaignComplete: true, // Victory always means campaign complete
     };
+
+    /* BOLT-020: Update session-best highest wave reached. */
+    this.updateSessionBestWave(this.gameState.highestWaveReached);
 
     /* Store gameOverData on registry as a reliable fallback.
      * Same pattern as triggerDefeat -- ensures data survives
@@ -366,6 +389,19 @@ export class GameStateManager extends BaseSystem {
       return true;
     }
     return false;
+  }
+
+  /**
+   * Tracks the session-best highest wave reached on the Phaser registry.
+   * BOLT-020: Used by the GameOver scene to display personal best wave.
+   *
+   * @param waveReached - Highest wave reached in this run.
+   */
+  private updateSessionBestWave(waveReached: number): void {
+    const prevBest = (this.scene.registry.get('sessionBestWave') as number) ?? 0;
+    if (waveReached > prevBest) {
+      this.scene.registry.set('sessionBestWave', waveReached);
+    }
   }
 
   // ---------------------------------------------------------------------------

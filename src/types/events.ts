@@ -472,3 +472,20 @@ export interface BossDiedPayload {
   /** World-space position where the boss died. */
   position: { x: number; y: number };
 }
+
+// ---------------------------------------------------------------------------
+// Endless Mode Events (BOLT-020)
+// ---------------------------------------------------------------------------
+
+/**
+ * Payload for CAMPAIGN_COMPLETE event.
+ * Emitted by BOLT-020 (WaveSystem) when all 20 scripted waves are completed
+ * in endless mode. The game continues with procedural waves instead of
+ * triggering victory. Listened by HUD (campaign complete banner), GameStateManager.
+ */
+export interface CampaignCompletePayload {
+  /** Total scripted waves completed (20). */
+  totalScriptedWaves: number;
+  /** Game time in milliseconds when the campaign completed. */
+  timestamp: number;
+}

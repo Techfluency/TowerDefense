@@ -23,11 +23,14 @@ import type {
   WaveStartedPayload,
   WaveCompletedPayload,
   AllWavesCompletedPayload,
+  CampaignCompletePayload,
   CompositionSummaryEntry,
   GameOverPayload,
 } from '../types/events';
 import type { ConfigManager } from '../utils/config-manager';
 import type { EnemySystem } from './enemy-system';
+import { generateEndlessWave as generateEndlessWaveDef } from './endless-wave-generator';
+import type { EndlessConfig } from '../types/game-types';
 import type Phaser from 'phaser';
 
 // ---------------------------------------------------------------------------
@@ -120,6 +123,18 @@ export class WaveSystem extends BaseSystem {
   private mapReady = false;
 
   /**
+   * Endless mode config, loaded from registry. Null when not in endless mode
+   * or before config is loaded. BOLT-020.
+   */
+  private endlessConfig: EndlessConfig | null = null;
+
+  /**
+   * Whether the wave system has transitioned into endless mode.
+   * True after all scripted waves complete in 'endless' gameMode. BOLT-020.
+   */
+  private endlessActive = false;
+
+  /**
    * @param scene - The Gameplay scene.
    * @param gameState - Shared per-run game state.
    * @param configManager - Typed config access for wave definitions.
@@ -153,6 +168,9 @@ export class WaveSystem extends BaseSystem {
 
     /* Listen for game over to halt all wave activity. */
     this.listen(GAME_EVENTS.GAME_OVER, this.onGameOver as (...args: never[]) => void);
+
+    /* BOLT-020: Load endless config from registry (stored by Gameplay scene). */
+    this.endlessConfig = (this.scene.registry.get('endlessConfig') as EndlessConfig) ?? null;
 
     /* Store self on registry for BOLT-009 HUD access. */
     this.scene.registry.set('waveSystem', this);
@@ -203,6 +221,8 @@ export class WaveSystem extends BaseSystem {
     this.activeGroups = [];
     this.enemySystem = null;
     this.mapReady = false;
+    this.endlessActive = false;
+    this.endlessConfig = null;
     super.destroy();
   }
 
@@ -221,8 +241,10 @@ export class WaveSystem extends BaseSystem {
 
   /**
    * Returns the total number of waves in the run (from config).
+   * BOLT-020: In endless mode, returns -1 to indicate infinite waves.
    */
   getTotalWaves(): number {
+    if (this.endlessActive) return -1;
     return this.waveDefinitions.length;
   }
 
@@ -260,11 +282,22 @@ export class WaveSystem extends BaseSystem {
       return [];
     }
 
-    if (targetIndex < 0 || targetIndex >= this.waveDefinitions.length) {
+    if (targetIndex < 0) {
       return [];
     }
 
-    return this.buildCompositionSummary(this.waveDefinitions[targetIndex]!);
+    /* If the target index is within existing definitions, use it directly. */
+    if (targetIndex < this.waveDefinitions.length) {
+      return this.buildCompositionSummary(this.waveDefinitions[targetIndex]!);
+    }
+
+    /* BOLT-020: In endless mode, pre-generate the target wave for preview. */
+    if (this.endlessActive && this.endlessConfig) {
+      const previewDef = this.generateEndlessWave(targetIndex + 1); // 1-indexed
+      return this.buildCompositionSummary(previewDef);
+    }
+
+    return [];
   }
 
   /**
@@ -279,15 +312,26 @@ export class WaveSystem extends BaseSystem {
   }
 
   /**
-   * Architecture hook for Phase 3 endless mode.
-   * In Phase 1, this throws -- the method signature exists so Phase 3
-   * can implement procedural wave generation without schema changes.
-   *
-   * @param _waveNumber - The wave number to generate (beyond wave 20).
-   * @throws Error always in Phase 1.
+   * Returns whether the wave system is currently in endless mode
+   * (past the scripted campaign waves and generating procedural waves). BOLT-020.
    */
-  generateEndlessWave(_waveNumber: number): WaveDefinition {
-    throw new Error('Endless mode not implemented in Phase 1');
+  isEndlessMode(): boolean {
+    return this.endlessActive;
+  }
+
+  /**
+   * Generates a procedural wave definition for endless mode. BOLT-020.
+   * Uses the seeded RNG and endless config to produce deterministic waves.
+   *
+   * @param waveNumber - The wave number to generate (must be >= scaledWaveStart).
+   * @returns A WaveDefinition for the requested wave.
+   * @throws Error if endlessConfig is not loaded.
+   */
+  generateEndlessWave(waveNumber: number): WaveDefinition {
+    if (!this.endlessConfig) {
+      throw new Error('Endless mode config not loaded -- cannot generate endless wave');
+    }
+    return generateEndlessWaveDef(waveNumber, this.gameState.gameSeed, this.endlessConfig);
   }
 
   // ---------------------------------------------------------------------------
@@ -360,13 +404,24 @@ export class WaveSystem extends BaseSystem {
 
   /**
    * COMPLETE state update: emits WAVE_COMPLETED, then either transitions
-   * to PREP for the next wave or emits ALL_WAVES_COMPLETED and goes IDLE.
+   * to PREP for the next wave, triggers endless continuation, or emits
+   * ALL_WAVES_COMPLETED and goes IDLE.
+   *
+   * BOLT-020: When the final scripted wave completes and gameMode is 'endless',
+   * the system emits CAMPAIGN_COMPLETE and generates procedural waves instead
+   * of emitting ALL_WAVES_COMPLETED.
    */
   private updateComplete(time: number): void {
+    /* Use the correct totalWaves value -- in endless mode after campaign,
+     * we report the current wave number as totalWaves since there is no fixed end. */
+    const reportedTotalWaves = this.endlessActive
+      ? this.waveIndex + 1
+      : this.waveDefinitions.length;
+
     /* Emit WAVE_COMPLETED event for BOLT-008 (bonus calculation). */
     const completedPayload: WaveCompletedPayload = {
       waveNumber: this.waveIndex + 1,
-      totalWaves: this.waveDefinitions.length,
+      totalWaves: reportedTotalWaves,
       earlyStart: this.earlyStartFlag,
       timestamp: time,
     };
@@ -375,17 +430,47 @@ export class WaveSystem extends BaseSystem {
     /* Update GameState wave tracking. */
     this.gameState.currentWave = this.waveIndex + 1;
 
-    /* Check if this was the final wave. */
+    /* BOLT-020: Track highest wave reached for the run. */
+    if (this.gameState.currentWave > this.gameState.highestWaveReached) {
+      this.gameState.highestWaveReached = this.gameState.currentWave;
+    }
+
+    /* Check if this was the final scripted wave. */
     if (this.waveIndex >= this.waveDefinitions.length - 1) {
-      /* All waves complete -- emit victory event and go IDLE. */
-      const allCompletePayload: AllWavesCompletedPayload = {
-        totalWaves: this.waveDefinitions.length,
-        timestamp: time,
-      };
-      this.emit(GAME_EVENTS.ALL_WAVES_COMPLETED, allCompletePayload);
-      this.currentState = WaveState.IDLE;
+      /* BOLT-020: In endless mode, transition to procedural wave generation
+       * instead of triggering victory. */
+      if (this.gameState.gameMode === 'endless' && this.endlessConfig) {
+        if (!this.endlessActive) {
+          /* First time reaching the end of scripted waves -- emit campaign complete. */
+          this.endlessActive = true;
+          this.gameState.campaignComplete = true;
+
+          const campaignPayload: CampaignCompletePayload = {
+            totalScriptedWaves: this.waveDefinitions.length,
+            timestamp: time,
+          };
+          this.emit(GAME_EVENTS.CAMPAIGN_COMPLETE, campaignPayload);
+        }
+
+        /* Generate and append the next endless wave. */
+        const nextWaveNumber = this.waveIndex + 2; // waveIndex is 0-based, waveNumber is 1-based
+        const endlessWaveDef = this.generateEndlessWave(nextWaveNumber);
+        this.waveDefinitions.push(endlessWaveDef);
+
+        /* Advance to the new wave. */
+        this.waveIndex++;
+        this.startPrep();
+      } else {
+        /* Stage mode or no endless config: standard victory path. */
+        const allCompletePayload: AllWavesCompletedPayload = {
+          totalWaves: this.waveDefinitions.length,
+          timestamp: time,
+        };
+        this.emit(GAME_EVENTS.ALL_WAVES_COMPLETED, allCompletePayload);
+        this.currentState = WaveState.IDLE;
+      }
     } else {
-      /* More waves remain -- transition to PREP for the next wave. */
+      /* More scripted waves remain -- transition to PREP for the next wave. */
       this.waveIndex++;
       this.startPrep();
     }
@@ -449,17 +534,33 @@ export class WaveSystem extends BaseSystem {
      * completed wave count instead of the current wave (D4 fix). */
     this.gameState.currentWave = this.waveIndex + 1;
 
-    /* Build upcoming composition for the NEXT wave (N+1) for the event payload. */
+    /* Build upcoming composition for the NEXT wave (N+1) for the event payload.
+     * BOLT-020: In endless mode, the next wave may not exist yet in waveDefinitions.
+     * Pre-generate it so the HUD can show the composition preview. */
     const nextWaveIndex = this.waveIndex + 1;
-    const upcomingComposition: CompositionSummaryEntry[] =
-      nextWaveIndex < this.waveDefinitions.length
-        ? this.buildCompositionSummary(this.waveDefinitions[nextWaveIndex]!)
-        : [];
+    let upcomingComposition: CompositionSummaryEntry[];
+
+    if (nextWaveIndex < this.waveDefinitions.length) {
+      upcomingComposition = this.buildCompositionSummary(this.waveDefinitions[nextWaveIndex]!);
+    } else if (this.endlessActive && this.endlessConfig) {
+      /* BOLT-020: Pre-generate the next endless wave for composition preview. */
+      const previewWaveNum = nextWaveIndex + 1; // 1-indexed wave number
+      const previewDef = this.generateEndlessWave(previewWaveNum);
+      upcomingComposition = this.buildCompositionSummary(previewDef);
+    } else {
+      upcomingComposition = [];
+    }
+
+    /* BOLT-020: In endless mode, report current wave number as totalWaves
+     * since there is no fixed total. */
+    const reportedTotalWaves = this.endlessActive
+      ? this.waveIndex + 1
+      : this.waveDefinitions.length;
 
     /* Emit WAVE_STARTED event for BOLT-009 HUD. */
     const payload: WaveStartedPayload = {
       waveNumber: this.waveIndex + 1,
-      totalWaves: this.waveDefinitions.length,
+      totalWaves: reportedTotalWaves,
       isBossWave: waveDef.isBossWave,
       earlyStart: this.earlyStartFlag,
       upcomingComposition,

@@ -60,12 +60,18 @@ const HEALTH_BAR_COLORS = {
   background: 0x333333, // Dark gray background
 };
 
-/** Wave scaling constants. */
+/**
+ * Wave scaling constants.
+ * BOLT-020: maxHpMultiplier raised from 5.0 to 999 and maxSpeedMultiplier
+ * raised from 2.0 to 3.0 so the same formula works for endless mode
+ * without hitting caps before wave ~30. Campaign balance is unchanged
+ * because wave 20 only reaches hpMultiplier=3.85 and speedMultiplier=1.57.
+ */
 const WAVE_SCALING = {
   hpPerWave: 0.15,
   speedPerWave: 0.03,
-  maxHpMultiplier: 5.0,
-  maxSpeedMultiplier: 2.0,
+  maxHpMultiplier: 999,
+  maxSpeedMultiplier: 3.0,
 };
 
 export class EnemySystem extends BaseSystem {

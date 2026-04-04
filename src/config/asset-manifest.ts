@@ -188,6 +188,8 @@ export const ASSET_MANIFEST: AssetManifest = {
     { key: 'config-map', path: '/data/map-config.json' },
     { key: 'config-tower-upgrades', path: '/data/tower-upgrades.json' },
     { key: 'config-economy', path: '/data/economy.json' },
+    /* BOLT-020: Endless mode scaling config. */
+    { key: 'config-endless', path: '/data/endless-config.json' },
   ],
 
   tilemaps: [

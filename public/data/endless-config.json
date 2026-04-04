@@ -1,0 +1,56 @@
+{
+  "scaledWaveStart": 21,
+  "bossWaveInterval": 5,
+  "basePrepTimeMs": 15000,
+  "bossPrepTimeMs": 20000,
+  "baseEnemyCount": 20,
+  "enemyCountGrowthRate": 0.10,
+  "maxEnemyCount": 100,
+  "hpMultiplierPerWave": 0.15,
+  "speedMultiplierPerWave": 0.03,
+  "maxHpMultiplier": 999,
+  "maxSpeedMultiplier": 3.0,
+  "armorBonusPerWave": 0.5,
+  "maxArmorBonus": 30,
+  "baseSpawnIntervalMs": 600,
+  "minSpawnIntervalMs": 200,
+  "spawnIntervalDecayPerWave": 5,
+  "archetypeWeights": {
+    "early": {
+      "runner": 30,
+      "tank": 15,
+      "fast": 20,
+      "swarm": 20,
+      "flyer": 5,
+      "shielded": 5,
+      "support": 5
+    },
+    "mid": {
+      "runner": 20,
+      "tank": 15,
+      "fast": 15,
+      "swarm": 15,
+      "flyer": 10,
+      "shielded": 15,
+      "support": 10
+    },
+    "late": {
+      "runner": 10,
+      "tank": 15,
+      "fast": 15,
+      "swarm": 10,
+      "flyer": 15,
+      "shielded": 20,
+      "support": 15
+    }
+  },
+  "weightTransitions": {
+    "earlyToMidWave": 30,
+    "midToLateWave": 50
+  },
+  "bossGroupMinions": {
+    "minCount": 8,
+    "maxCount": 15,
+    "countGrowthPerWave": 1
+  }
+}

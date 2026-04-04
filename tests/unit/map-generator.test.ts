@@ -75,6 +75,9 @@ function createGameState(seed = 'test-seed-42'): GameState {
     isPaused: false,
     isGameOver: false,
     gameSeed: seed,
+    gameMode: 'stage',
+    highestWaveReached: 0,
+    campaignComplete: false,
   };
 }
 

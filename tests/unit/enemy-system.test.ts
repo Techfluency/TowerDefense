@@ -63,6 +63,9 @@ function createMockGameState(): GameState {
     isPaused: false,
     isGameOver: false,
     gameSeed: 'test-seed',
+    gameMode: 'stage',
+    highestWaveReached: 0,
+    campaignComplete: false,
   };
 }
 
@@ -243,16 +246,18 @@ describe('EnemySystem', () => {
       }
     });
 
-    it('should cap HP multiplier at 5.0', () => {
-      /* Wave 28: 1 + 27 * 0.15 = 5.05, clamped to 5.0 */
+    it('should continue scaling HP multiplier for endless mode waves', () => {
+      /* BOLT-020: HP cap raised to 999 so endless mode scales freely.
+       * Wave 28: 1 + 27 * 0.15 = 5.05 (no longer clamped at 5.0). */
       const scaling = EnemySystem.getWaveScaling(28);
-      expect(scaling.hpMultiplier).toBe(5.0);
+      expect(scaling.hpMultiplier).toBeCloseTo(5.05, 2);
     });
 
-    it('should cap speed multiplier at 2.0', () => {
-      /* Wave 35: 1 + 34 * 0.03 = 2.02, clamped to 2.0 */
-      const scaling = EnemySystem.getWaveScaling(35);
-      expect(scaling.speedMultiplier).toBe(2.0);
+    it('should cap speed multiplier at 3.0', () => {
+      /* BOLT-020: Speed cap raised from 2.0 to 3.0 for endless mode.
+       * Wave 68: 1 + 67 * 0.03 = 3.01, clamped to 3.0. */
+      const scaling = EnemySystem.getWaveScaling(68);
+      expect(scaling.speedMultiplier).toBe(3.0);
     });
 
     it('should handle wave 0 gracefully (min factor 0)', () => {

@@ -91,7 +91,7 @@ function createMockScene() {
 function createSystem(enemies: ReturnType<typeof createMockEnemy>[]) {
   const scene = createMockScene();
   const enemySystem = createMockEnemySystem(enemies);
-  const gameState = { currency: 1000, score: 0, currentWave: 1, totalWaves: 20, objectiveHp: 100, maxObjectiveHp: 100, isPaused: false, isGameOver: false, gameSeed: 'test' };
+  const gameState = { currency: 1000, score: 0, currentWave: 1, totalWaves: 20, objectiveHp: 100, maxObjectiveHp: 100, isPaused: false, isGameOver: false, gameSeed: 'test', gameMode: 'stage' as const, highestWaveReached: 0, campaignComplete: false };
 
   /* Make registry.get return the mock enemy system. */
   scene.registry.get = vi.fn((key: string) => {

@@ -399,6 +399,102 @@ export interface GameState {
   isGameOver: boolean;
   /** The seed used for all randomness (map gen, wave composition, etc.). */
   gameSeed: string;
+  /**
+   * Game mode for the current run. BOLT-020.
+   * 'stage' = standard 20-wave campaign. 'endless' = infinite waves after campaign.
+   * Defaults to 'endless' -- all runs play through 20 scripted waves first,
+   * then continue with procedurally generated waves instead of triggering victory.
+   */
+  gameMode: GameMode;
+  /**
+   * Highest wave reached in the current run. BOLT-020.
+   * Tracked separately from currentWave because currentWave resets between runs
+   * while this value is used for the "best wave" display and localStorage persistence.
+   */
+  highestWaveReached: number;
+  /**
+   * Whether the scripted campaign waves (1-20) have been completed. BOLT-020.
+   * When true and gameMode is 'endless', the wave system generates
+   * procedural waves instead of emitting ALL_WAVES_COMPLETED.
+   */
+  campaignComplete: boolean;
+}
+
+/**
+ * Game mode discriminator for run type. BOLT-020.
+ * 'stage' = play through 20 scripted waves, victory on completion.
+ * 'endless' = play through 20 scripted waves, then continue with procedural waves.
+ */
+export type GameMode = 'stage' | 'endless';
+
+// ---------------------------------------------------------------------------
+// Endless Mode Configuration (BOLT-020)
+// ---------------------------------------------------------------------------
+
+/**
+ * Archetype weight distribution for procedural wave composition.
+ * Keys are enemy archetype IDs, values are relative weights (sum to 100).
+ * BOLT-020: Used by EndlessWaveGenerator to select enemy mix per wave.
+ */
+export interface ArchetypeWeights {
+  [archetypeId: string]: number;
+}
+
+/**
+ * Configuration for procedural endless wave generation, loaded from
+ * endless-config.json. All difficulty scaling parameters are data-driven
+ * so balance can be tuned without code changes. BOLT-020.
+ */
+export interface EndlessConfig {
+  /** First wave number that uses procedural generation (21). */
+  scaledWaveStart: number;
+  /** Boss wave occurs every N waves in endless mode (e.g., every 5th). */
+  bossWaveInterval: number;
+  /** Prep time in ms for normal endless waves. */
+  basePrepTimeMs: number;
+  /** Prep time in ms for boss waves in endless mode. */
+  bossPrepTimeMs: number;
+  /** Starting enemy count for the first endless wave. */
+  baseEnemyCount: number;
+  /** Percentage growth in enemy count per wave (0.10 = 10%). */
+  enemyCountGrowthRate: number;
+  /** Hard cap on enemy count per wave to prevent performance issues. */
+  maxEnemyCount: number;
+  /** HP multiplier added per wave (continues the 0.15 formula from campaign). */
+  hpMultiplierPerWave: number;
+  /** Speed multiplier added per wave. */
+  speedMultiplierPerWave: number;
+  /** No cap on HP multiplier in endless (set very high). */
+  maxHpMultiplier: number;
+  /** Hard cap on speed multiplier. */
+  maxSpeedMultiplier: number;
+  /** Flat armor added per wave beyond wave 20. */
+  armorBonusPerWave: number;
+  /** Hard cap on armor bonus. */
+  maxArmorBonus: number;
+  /** Starting spawn interval in ms for endless waves. */
+  baseSpawnIntervalMs: number;
+  /** Minimum spawn interval in ms (floor). */
+  minSpawnIntervalMs: number;
+  /** Ms reduction in spawn interval per wave beyond 20. */
+  spawnIntervalDecayPerWave: number;
+  /** Archetype weight tables for early/mid/late endless phases. */
+  archetypeWeights: {
+    early: ArchetypeWeights;
+    mid: ArchetypeWeights;
+    late: ArchetypeWeights;
+  };
+  /** Wave thresholds for transitioning between weight tables. */
+  weightTransitions: {
+    earlyToMidWave: number;
+    midToLateWave: number;
+  };
+  /** Boss wave minion configuration. */
+  bossGroupMinions: {
+    minCount: number;
+    maxCount: number;
+    countGrowthPerWave: number;
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -517,6 +613,8 @@ export const GAME_EVENTS = {
   BOSS_SPEED_SURGE: 'BOSS_SPEED_SURGE',
   /** Emitted by BOLT-018 BossSystem when a boss enemy dies. Listened by HUD (boss HP bar removal, reward VFX). */
   BOSS_DIED: 'BOSS_DIED',
+  /** Emitted by BOLT-020 WaveSystem when all scripted waves complete and endless mode continues. Listened by HUD (campaign complete banner). */
+  CAMPAIGN_COMPLETE: 'CAMPAIGN_COMPLETE',
 } as const;
 
 /**

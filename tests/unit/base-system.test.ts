@@ -75,6 +75,9 @@ function createMockGameState(): GameState {
     isPaused: false,
     isGameOver: false,
     gameSeed: 'test-seed',
+    gameMode: 'stage',
+    highestWaveReached: 0,
+    campaignComplete: false,
   };
 }
 

@@ -91,6 +91,14 @@ export class Gameplay extends Phaser.Scene {
     const vfxManager = new VFXManager(this, 'high');
     this.registry.set('vfxManager', vfxManager);
 
+    /* --- Endless Mode Config (BOLT-020) ---
+     * Load endless-config.json from Phaser cache and store on registry
+     * for WaveSystem to read during init(). */
+    const endlessConfig = this.cache.json.get('config-endless') ?? null;
+    if (endlessConfig) {
+      this.registry.set('endlessConfig', endlessConfig);
+    }
+
     /* --- Store references on registry for DebugOverlay access ---
      * The DebugOverlay scene runs in parallel and reads these. */
     this.registry.set('poolManager', this.poolManager);
@@ -289,6 +297,9 @@ export class Gameplay extends Phaser.Scene {
     /* Remove bossSystem registry reference (BOLT-018). */
     this.registry.remove('bossSystem');
 
+    /* Remove endlessConfig registry reference (BOLT-020). */
+    this.registry.remove('endlessConfig');
+
     /* Note: 'gameStateManager', 'hudSystem', 'speedMultiplier' are removed
      * by GameStateManager.destroy() and HudSystem.destroy() above. */
 
@@ -318,6 +329,11 @@ export class Gameplay extends Phaser.Scene {
       isPaused: false,
       isGameOver: false,
       gameSeed: seed,
+      /* BOLT-020: Default to 'endless' mode -- all runs play through campaign
+       * then continue with procedural waves. */
+      gameMode: 'endless',
+      highestWaveReached: 0,
+      campaignComplete: false,
     };
   }
 }
