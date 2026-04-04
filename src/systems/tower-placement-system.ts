@@ -199,10 +199,16 @@ export class TowerPlacementSystem extends BaseSystem {
    */
   private createBuildMenu(): void {
     const allTowers = this.configManager.getAllTowers();
-    /* Only include the 4 Phase 1 tower types (exclude utility if present). */
-    const towers = allTowers.filter(
-      t => t.towerClass !== 'utility',
-    );
+
+    /* BOLT-021: Filter towers by progression unlock state.
+     * Only show towers the player has unlocked. ProgressionManager is on registry.
+     * Falls back to showing all non-utility towers if progression is unavailable. */
+    const pm = this.scene.registry.get('progressionManager') as
+      { isTowerUnlocked(id: string): boolean } | undefined;
+    const towers = allTowers.filter(t => {
+      if (t.towerClass === 'utility') return false;
+      return pm ? pm.isTowerUnlocked(t.id) : true;
+    });
 
     /* Calculate panel position. Game width is 1280 per game-config. */
     const gameWidth = Number(this.scene.game.config.width);

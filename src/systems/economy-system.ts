@@ -21,6 +21,7 @@ import type {
   TowerRemovedPayload,
   CurrencyChangedPayload,
   ScoreChangedPayload,
+  BossDiedPayload,
 } from '../types/events';
 import type { ConfigManager } from '../utils/config-manager';
 
@@ -35,6 +36,8 @@ export class EconomySystem extends BaseSystem {
   private totalKills = 0;
   /** Highest waveNumber received via WAVE_COMPLETED. */
   private wavesCompleted = 0;
+  /** Total boss enemies killed in this run. BOLT-021: tracked for XP calculation. */
+  private bossKills = 0;
 
   /**
    * @param scene - The Phaser scene this system belongs to.
@@ -59,12 +62,29 @@ export class EconomySystem extends BaseSystem {
 
     /* Set starting currency from config (overrides the 0 from createInitialGameState). */
     this.gameState.currency = this.economyConfig.startingCurrency;
-    this.emitCurrencyChanged(this.economyConfig.startingCurrency, 'run_start');
+
+    /* BOLT-021: Apply starting currency bonus from meta-progression unlocks.
+     * Lv5 grants +25, Lv8 grants +50 (stacked = +75 at Lv8+).
+     * ProgressionManager is stored on registry by Boot scene.
+     * Uses optional chaining because registry may not exist in unit test mocks. */
+    const registry = this.scene.registry as
+      { get?(key: string): unknown } | undefined;
+    const progressionManager = registry?.get?.('progressionManager') as
+      { getStartingCurrencyBonus(): number } | undefined;
+    const currencyBonus = progressionManager?.getStartingCurrencyBonus() ?? 0;
+    if (currencyBonus > 0) {
+      this.gameState.currency += currencyBonus;
+    }
+
+    this.emitCurrencyChanged(this.gameState.currency, 'run_start');
 
     /* Register event listeners via BaseSystem.listen() for auto-cleanup. */
     this.listen(GAME_EVENTS.ENEMY_DIED, this.onEnemyDied as (...args: never[]) => void);
     this.listen(GAME_EVENTS.WAVE_COMPLETED, this.onWaveCompleted as (...args: never[]) => void);
     this.listen(GAME_EVENTS.TOWER_REMOVED, this.onTowerRemoved as (...args: never[]) => void);
+
+    /* BOLT-021: Listen for boss kills to track for XP calculation. */
+    this.listen(GAME_EVENTS.BOSS_DIED, this.onBossDied as (...args: never[]) => void);
   }
 
   /**
@@ -108,6 +128,7 @@ export class EconomySystem extends BaseSystem {
       totalKills: this.totalKills,
       finalScore: this.gameState.score,
       wavesCompleted: this.wavesCompleted,
+      bossKills: this.bossKills,
     };
   }
 
@@ -179,6 +200,14 @@ export class EconomySystem extends BaseSystem {
       this.gameState.currency += payload.refundAmount;
       this.emitCurrencyChanged(payload.refundAmount, 'tower_sold');
     }
+  }
+
+  /**
+   * Handles BOSS_DIED: increments the boss kill counter for run stats.
+   * BOLT-021: Boss kills contribute 50 XP each to meta progression.
+   */
+  private onBossDied(_payload: BossDiedPayload): void {
+    this.bossKills++;
   }
 
   // ---------------------------------------------------------------------------

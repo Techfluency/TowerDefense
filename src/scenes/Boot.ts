@@ -15,6 +15,7 @@ import Phaser from 'phaser';
 import { SCENE_KEYS } from '../config/game-config';
 import { loadEnvConfig } from '../config/env';
 import type { EnvConfig } from '../config/env';
+import { ProgressionManager } from '../utils/progression-manager';
 
 export class Boot extends Phaser.Scene {
   constructor() {
@@ -45,6 +46,12 @@ export class Boot extends Phaser.Scene {
     if (envConfig.debug) {
       this.scene.launch(SCENE_KEYS.DEBUG_OVERLAY);
     }
+
+    /* BOLT-021: Initialize the meta-progression manager and store on registry.
+     * Created in Boot so it's available before any scene needs unlock data.
+     * Loads player profile from localStorage (or creates a fresh one). */
+    const progressionManager = new ProgressionManager();
+    this.registry.set('progressionManager', progressionManager);
 
     /* Transition to the Preload scene, which loads all game assets. */
     this.scene.start(SCENE_KEYS.PRELOAD);

@@ -15,6 +15,7 @@ import Phaser from 'phaser';
 import { SCENE_KEYS, GAME_WIDTH, GAME_HEIGHT } from '../config/game-config';
 import type { EnvConfig } from '../config/env';
 import { fadeTransition, fadeIn, scaleIn } from '../ui/ui-animations';
+import type { ProgressionManager } from '../utils/progression-manager';
 
 /** Settings state stored on registry. */
 interface SettingsState {
@@ -99,6 +100,9 @@ export class MainMenu extends Phaser.Scene {
       color: '#666666',
     }).setOrigin(0.5);
 
+    /* --- BOLT-021: Player Level Display --- */
+    this.renderPlayerLevel(GAME_HEIGHT * 0.44);
+
     /* --- New Game Button --- */
     this.createButton(
       GAME_WIDTH / 2, GAME_HEIGHT * 0.55,
@@ -125,6 +129,64 @@ export class MainMenu extends Phaser.Scene {
       this.input.keyboard.on('keydown-ESC', () => {
         if (this.settingsPanel) this.closeSettingsPanel();
       });
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // BOLT-021: Player Level Display
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Renders the player level badge and XP progress bar on the main menu.
+   * Reads from the ProgressionManager on the registry.
+   *
+   * @param y - Y position for the level display section.
+   */
+  private renderPlayerLevel(y: number): void {
+    const pm = this.registry.get('progressionManager') as ProgressionManager | undefined;
+    if (!pm) return;
+
+    const level = pm.getLevel();
+    const fraction = pm.getProgressFraction();
+    const centerX = GAME_WIDTH / 2;
+
+    /* Level text. */
+    const levelLabel = level >= 10 ? `Level ${level} (MAX)` : `Level ${level}`;
+    this.add.text(centerX, y, levelLabel, {
+      fontSize: '18px',
+      fontFamily: 'monospace',
+      fontStyle: 'bold',
+      color: '#4A90D9',
+    }).setOrigin(0.5);
+
+    /* XP progress bar. */
+    const barWidth = 180;
+    const barHeight = 8;
+    const barX = centerX - barWidth / 2;
+    const barY = y + 20;
+
+    /* Bar background. */
+    const barBg = this.add.graphics();
+    barBg.fillStyle(0x333333, 1);
+    barBg.fillRoundedRect(barX, barY, barWidth, barHeight, 3);
+
+    /* Bar fill. */
+    const fillWidth = barWidth * fraction;
+    if (fillWidth > 0) {
+      const barFill = this.add.graphics();
+      barFill.fillStyle(0x4A90D9, 1);
+      barFill.fillRoundedRect(barX, barY, fillWidth, barHeight, 3);
+    }
+
+    /* XP numbers below bar (only if not max level). */
+    if (level < 10) {
+      const xpInLevel = pm.getXPInCurrentLevel();
+      const xpNeeded = pm.getXPToNextLevel();
+      this.add.text(centerX, barY + barHeight + 4, `${xpInLevel} / ${xpNeeded} XP`, {
+        fontSize: '11px',
+        fontFamily: 'monospace',
+        color: '#666666',
+      }).setOrigin(0.5);
     }
   }
 

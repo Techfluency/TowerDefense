@@ -304,6 +304,11 @@ export interface RunStats {
   finalScore: number;
   /** Highest waveNumber from WAVE_COMPLETED events received. */
   wavesCompleted: number;
+  /**
+   * Number of boss enemies killed during the run. BOLT-021.
+   * Tracked via BOSS_DIED events from BossSystem.
+   */
+  bossKills: number;
 }
 
 // ---------------------------------------------------------------------------

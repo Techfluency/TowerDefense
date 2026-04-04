@@ -72,6 +72,11 @@ export interface GameOverData {
    * True in endless mode runs that made it past wave 20. Always true for stage mode victories.
    */
   campaignComplete: boolean;
+  /**
+   * Number of boss enemies killed during the run. BOLT-021.
+   * Used for XP calculation (50 XP per boss kill).
+   */
+  bossKills: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -281,7 +286,7 @@ export class GameStateManager extends BaseSystem {
     this.gameState.objectiveHp = 0;
 
     const runStats = this.economySystem?.getRunStats() ?? {
-      totalKills: 0, finalScore: this.gameState.score, wavesCompleted: 0,
+      totalKills: 0, finalScore: this.gameState.score, wavesCompleted: 0, bossKills: 0,
     };
 
     const gameOverPayload: GameOverPayload = {
@@ -295,7 +300,8 @@ export class GameStateManager extends BaseSystem {
     const isNewSessionBest = this.updateSessionBest(runStats.finalScore);
 
     /* Build GameOverData for the results screen.
-     * BOLT-020: Include highestWaveReached and campaignComplete status. */
+     * BOLT-020: Include highestWaveReached and campaignComplete status.
+     * BOLT-021: Include bossKills for XP calculation. */
     const gameOverData: GameOverData = {
       victory: false,
       score: runStats.finalScore,
@@ -305,6 +311,7 @@ export class GameStateManager extends BaseSystem {
       isNewSessionBest,
       highestWaveReached: this.gameState.highestWaveReached,
       campaignComplete: this.gameState.campaignComplete,
+      bossKills: runStats.bossKills,
     };
 
     /* BOLT-020: Update session-best highest wave reached. */
@@ -336,7 +343,7 @@ export class GameStateManager extends BaseSystem {
     this.gameState.isGameOver = true;
 
     const runStats = this.economySystem?.getRunStats() ?? {
-      totalKills: 0, finalScore: this.gameState.score, wavesCompleted: this.gameState.totalWaves,
+      totalKills: 0, finalScore: this.gameState.score, wavesCompleted: this.gameState.totalWaves, bossKills: 0,
     };
 
     const gameOverPayload: GameOverPayload = {
@@ -349,7 +356,8 @@ export class GameStateManager extends BaseSystem {
     /* Compute session-best before scene transition. */
     const isNewSessionBest = this.updateSessionBest(runStats.finalScore);
 
-    /* BOLT-020: Include highestWaveReached and campaignComplete in victory data. */
+    /* BOLT-020: Include highestWaveReached and campaignComplete in victory data.
+     * BOLT-021: Include bossKills for XP calculation. */
     const gameOverData: GameOverData = {
       victory: true,
       score: runStats.finalScore,
@@ -359,6 +367,7 @@ export class GameStateManager extends BaseSystem {
       isNewSessionBest,
       highestWaveReached: this.gameState.highestWaveReached,
       campaignComplete: true, // Victory always means campaign complete
+      bossKills: runStats.bossKills,
     };
 
     /* BOLT-020: Update session-best highest wave reached. */
