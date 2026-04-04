@@ -96,10 +96,26 @@ export function createGameConfig(): Phaser.Types.Core.GameConfig {
      * Scale manager: FIT mode resizes the canvas to fill the parent
      * container while maintaining aspect ratio. autoCenter places it
      * in the middle of the viewport.
+     *
+     * BOLT-022: expandParent ensures the canvas parent div resizes to fill
+     * the viewport on mobile, even when the address bar hides/shows.
+     * fullscreenTarget ensures the correct element enters fullscreen
+     * when triggered via the mobile fullscreen prompt.
      */
     scale: {
       mode: Phaser.Scale.FIT,
       autoCenter: Phaser.Scale.CENTER_BOTH,
+      expandParent: true,
+      fullscreenTarget: 'game-container',
+    },
+
+    /**
+     * BOLT-022: Enable multi-touch input so Phaser tracks multiple
+     * pointer events simultaneously. Required for potential future
+     * pinch-to-zoom and prevents single-touch blocking issues.
+     */
+    input: {
+      activePointers: 2,
     },
   };
 }

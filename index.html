@@ -2,7 +2,14 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!--
+      BOLT-022: Mobile viewport meta tag.
+      - initial-scale=1: no zoom on load
+      - maximum-scale=1: prevent pinch-to-zoom on the page (game handles its own camera zoom)
+      - user-scalable=no: explicit zoom lock for older mobile browsers
+      - viewport-fit=cover: extend into notch/safe areas on modern phones
+    -->
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
     <title>Random Gen Tower Defense</title>
     <style>
       /* Remove all margin/padding so the Phaser canvas fills the viewport.
@@ -16,13 +23,37 @@
       body {
         background-color: #000000;
         overflow: hidden;
+        /* BOLT-022: Prevent pull-to-refresh and overscroll bounce on mobile.
+         * touch-action: none prevents all default touch behaviors on the body,
+         * so the game canvas has full control over touch interpretation. */
+        touch-action: none;
+        overscroll-behavior: none;
+        -webkit-overflow-scrolling: touch;
+        /* Prevent text selection during gameplay on mobile. */
+        -webkit-user-select: none;
+        user-select: none;
+        /* Prevent tap highlight on mobile WebKit browsers. */
+        -webkit-tap-highlight-color: transparent;
       }
       #game-container {
-        width: 100vw;
+        /* BOLT-022: Fixed positioning fills the entire viewport on mobile,
+         * including when the address bar hides/shows. Using 100dvh where
+         * supported, with 100vh fallback for older browsers. */
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
         height: 100vh;
+        height: 100dvh;
         display: flex;
         justify-content: center;
         align-items: center;
+      }
+      /* BOLT-022: Prevent the Phaser canvas from being dragged or
+       * triggering default touch behaviors. */
+      canvas {
+        touch-action: none;
+        -webkit-touch-callout: none;
       }
     </style>
   </head>

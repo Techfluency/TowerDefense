@@ -228,6 +228,10 @@ export class UpgradeSystem extends BaseSystem {
     /* Listen for tile clicks to open/close the panel. */
     this.listen(GAME_EVENTS.TILE_CLICKED, this.onTileClicked as (...args: never[]) => void);
 
+    /* BOLT-022: Listen for long-press to open upgrade panel on mobile.
+     * Long-press on a tower tile opens the panel, same as left-click. */
+    this.listen(GAME_EVENTS.TOUCH_LONG_PRESS, this.onTileClicked as (...args: never[]) => void);
+
     /* Listen for escape to close panel. */
     this.listen(GAME_EVENTS.INPUT_CANCEL, this.onInputCancel as (...args: never[]) => void);
 

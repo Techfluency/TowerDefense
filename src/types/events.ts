@@ -489,3 +489,40 @@ export interface CampaignCompletePayload {
   /** Game time in milliseconds when the campaign completed. */
   timestamp: number;
 }
+
+// ---------------------------------------------------------------------------
+// Touch Gesture Events (BOLT-022)
+// ---------------------------------------------------------------------------
+
+/**
+ * Payload for TOUCH_LONG_PRESS event.
+ * Emitted by BOLT-022 (TouchInputSystem) after a 500ms hold on a tile.
+ * Listened by UpgradeSystem (opens upgrade panel if tower at position),
+ * HudSystem (shows enemy tooltip if enemy at position).
+ */
+export interface TouchLongPressPayload {
+  /** Grid column of the long-pressed tile. */
+  col: number;
+  /** Grid row of the long-pressed tile. */
+  row: number;
+  /** World-space pixel X of the press. */
+  worldX: number;
+  /** World-space pixel Y of the press. */
+  worldY: number;
+}
+
+/**
+ * Payload for TOUCH_DOUBLE_TAP event.
+ * Emitted by BOLT-022 (TouchInputSystem) on two rapid taps at the same tile.
+ * Listened by TowerPlacementSystem (triggers sell on placed tower).
+ */
+export interface TouchDoubleTapPayload {
+  /** Grid column of the double-tapped tile. */
+  col: number;
+  /** Grid row of the double-tapped tile. */
+  row: number;
+  /** World-space pixel X of the tap. */
+  worldX: number;
+  /** World-space pixel Y of the tap. */
+  worldY: number;
+}

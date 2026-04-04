@@ -39,6 +39,7 @@ import type { BaseSystem } from '../systems/base-system';
 import { VFXManager } from '../vfx/vfx-manager';
 import { AudioSystem } from '../systems/audio-system';
 import { BossSystem } from '../systems/boss-system';
+import { TouchInputSystem } from '../systems/touch-input-system';
 
 export class Gameplay extends Phaser.Scene {
   /**
@@ -87,8 +88,13 @@ export class Gameplay extends Phaser.Scene {
     /* --- VFX Manager (BOLT-014) ---
      * Central factory for all visual effects. Stored on registry so systems
      * can resolve it during init(). Quality defaults to 'high'; player can
-     * change via the settings panel (BOLT-009 integration). */
-    const vfxManager = new VFXManager(this, 'high');
+     * change via the settings panel (BOLT-009 integration).
+     *
+     * BOLT-022: Auto-detect mobile and default to 'low' quality for
+     * reduced particle counts and disabled trails/screen shake. */
+    const isMobile = (this.registry.get('isMobile') as boolean) ?? false;
+    const defaultQuality = isMobile ? 'low' : 'high';
+    const vfxManager = new VFXManager(this, defaultQuality);
     this.registry.set('vfxManager', vfxManager);
 
     /* --- Endless Mode Config (BOLT-020) ---
@@ -115,6 +121,11 @@ export class Gameplay extends Phaser.Scene {
     const autoTileSystem = new AutoTileSystem(this, this.gameState);
     const mapRenderer = new MapRendererSystem(this, this.gameState);
     const inputSystem = new InputSystem(this, this.gameState);
+
+    /* BOLT-022: Touch input system -- long-press and double-tap gestures.
+     * Runs alongside the base InputSystem. On desktop this is inert because
+     * the gestures only matter on touch devices. */
+    const touchInputSystem = new TouchInputSystem(this, this.gameState);
 
     /* Tower registry -- data store for all placed towers. Placed after input
      * so placement events fire after input processing in the same frame.
@@ -208,6 +219,7 @@ export class Gameplay extends Phaser.Scene {
       autoTileSystem,        /* Priority 0 (auto-tile) -- BOLT-011 */
       mapRenderer,           /* Priority 0 (map) */
       inputSystem,           /* Priority 0 (input) */
+      touchInputSystem,      /* Priority 0 (touch gestures) -- BOLT-022 */
       towerRegistry,         /* Priority 0 (tower data) -- BOLT-005 */
       towerPlacementSystem,  /* Priority 0 (tower placement UI) -- BOLT-005 */
       waveSystem,            /* Priority 1 (wave) -- BOLT-004 */

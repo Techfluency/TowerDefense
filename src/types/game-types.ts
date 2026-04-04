@@ -620,6 +620,10 @@ export const GAME_EVENTS = {
   BOSS_DIED: 'BOSS_DIED',
   /** Emitted by BOLT-020 WaveSystem when all scripted waves complete and endless mode continues. Listened by HUD (campaign complete banner). */
   CAMPAIGN_COMPLETE: 'CAMPAIGN_COMPLETE',
+  /** Emitted by BOLT-022 TouchInputSystem on long-press gesture (500ms hold). Listened by UpgradeSystem (opens upgrade panel on tower). */
+  TOUCH_LONG_PRESS: 'TOUCH_LONG_PRESS',
+  /** Emitted by BOLT-022 TouchInputSystem on double-tap gesture. Listened by TowerPlacementSystem (triggers sell on tower). */
+  TOUCH_DOUBLE_TAP: 'TOUCH_DOUBLE_TAP',
 } as const;
 
 /**

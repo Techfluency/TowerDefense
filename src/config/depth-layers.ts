@@ -57,3 +57,6 @@ export const DEPTH_TOOLTIP = 101;
 
 /** Full-screen overlays (pause, wave summary, settings, coach marks). BOLT-009. */
 export const DEPTH_OVERLAY = 105;
+
+/** BOLT-022: Mobile orientation/fullscreen overlays -- above everything in-game. */
+export const DEPTH_MOBILE_OVERLAY = 200;

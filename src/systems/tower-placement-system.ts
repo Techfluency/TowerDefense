@@ -16,7 +16,7 @@ import Phaser from 'phaser';
 import { BaseSystem } from './base-system';
 import { GAME_EVENTS } from '../types/game-types';
 import type { GameState, TowerDefinition } from '../types/game-types';
-import type { TileClickedPayload, TileHoverPayload, TowerPlacedPayload, TowerRemovedPayload } from '../types/events';
+import type { TileClickedPayload, TileHoverPayload, TowerPlacedPayload, TowerRemovedPayload, TouchDoubleTapPayload } from '../types/events';
 import type { ConfigManager } from '../utils/config-manager';
 import type { EconomySystem } from './economy-system';
 import { resolveEffectiveStats } from '../utils/stat-resolver';
@@ -176,6 +176,10 @@ export class TowerPlacementSystem extends BaseSystem {
      * InputSystem emits INPUT_CANCEL on right-click, but we also need
      * the raw pointer to know which tile was right-clicked for sell. */
     this.scene.input.on('pointerdown', this.handlePointerDown, this);
+
+    /* BOLT-022: Double-tap on a tower triggers sell flow on mobile.
+     * This replaces the right-click sell interaction for touch devices. */
+    this.listen(GAME_EVENTS.TOUCH_DOUBLE_TAP, this.handleDoubleTap as (...args: never[]) => void);
 
     this.createBuildMenu();
   }
@@ -620,6 +624,30 @@ export class TowerPlacementSystem extends BaseSystem {
       btn.container.setAlpha(DISABLED_ALPHA);
       btn.affordable = false;
     }
+  }
+
+  /**
+   * BOLT-022: Handles double-tap on a tile (mobile sell gesture).
+   * If a tower exists at the tapped tile, triggers the sell confirmation
+   * flow (same as the desktop right-click sell interaction).
+   *
+   * @param payload - Grid coordinates and world position of the double-tap.
+   */
+  private handleDoubleTap(payload: TouchDoubleTapPayload): void {
+    if (this.gameOver) return;
+    if (this.placementActive) return;
+
+    const tower = this.towerRegistry.getTowerAt(payload.col, payload.row);
+    if (!tower) return;
+
+    /* If tooltip is already showing for this tower, confirm the sell. */
+    if (this.sellTargetId === tower.instanceId) {
+      this.confirmSell(tower.instanceId);
+      return;
+    }
+
+    /* Show the sell tooltip (first double-tap shows, second confirms). */
+    this.showSellTooltip(tower);
   }
 
   // ---------------------------------------------------------------------------
