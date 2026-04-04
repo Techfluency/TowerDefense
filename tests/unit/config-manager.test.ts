@@ -107,6 +107,13 @@ describe('ConfigManager', () => {
       'config-projectiles': mockProjectiles,
       'config-map': mockMapConfig,
       'config-tower-upgrades': [],
+      'config-economy': {
+        startingCurrency: 150,
+        waveBonusBase: 10,
+        waveBonusPerWave: 5,
+        earlyStartBonus: 25,
+        waveScoreBonusPerWave: 500,
+      },
     });
     configManager = new ConfigManager(mockScene);
   });
@@ -197,6 +204,7 @@ describe('ConfigManager', () => {
         'config-projectiles': mockProjectiles,
         'config-map': mockMapConfig,
         'config-tower-upgrades': [],
+        'config-economy': { startingCurrency: 150, waveBonusBase: 10, waveBonusPerWave: 5, earlyStartBonus: 25, waveScoreBonusPerWave: 500 },
       });
       expect(() => new ConfigManager(badScene)).toThrow(
         'towers.json" not found in cache',
@@ -210,6 +218,7 @@ describe('ConfigManager', () => {
         'config-projectiles': mockProjectiles,
         'config-map': mockMapConfig,
         'config-tower-upgrades': [],
+        'config-economy': { startingCurrency: 150, waveBonusBase: 10, waveBonusPerWave: 5, earlyStartBonus: 25, waveScoreBonusPerWave: 500 },
       });
       expect(() => new ConfigManager(badScene)).toThrow(
         'enemies.json" not found in cache',
@@ -223,6 +232,7 @@ describe('ConfigManager', () => {
         'config-projectiles': mockProjectiles,
         'config-map': mockMapConfig,
         'config-tower-upgrades': [],
+        'config-economy': { startingCurrency: 150, waveBonusBase: 10, waveBonusPerWave: 5, earlyStartBonus: 25, waveScoreBonusPerWave: 500 },
       });
       expect(() => new ConfigManager(badScene)).toThrow(
         'waves.json" not found in cache',
@@ -236,6 +246,7 @@ describe('ConfigManager', () => {
         'config-waves': mockWaves,
         'config-map': mockMapConfig,
         'config-tower-upgrades': [],
+        'config-economy': { startingCurrency: 150, waveBonusBase: 10, waveBonusPerWave: 5, earlyStartBonus: 25, waveScoreBonusPerWave: 500 },
       });
       expect(() => new ConfigManager(badScene)).toThrow(
         'projectiles.json" not found in cache',

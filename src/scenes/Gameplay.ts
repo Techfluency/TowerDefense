@@ -31,6 +31,7 @@ import { TowerPlacementSystem } from '../systems/tower-placement-system';
 import { TowerCombatSystem } from '../systems/tower-combat-system';
 import { ProjectileSystem } from '../systems/projectile-system';
 import { UpgradeSystem } from '../systems/upgrade-system';
+import { EconomySystem } from '../systems/economy-system';
 import type { BaseSystem } from '../systems/base-system';
 
 export class Gameplay extends Phaser.Scene {
@@ -133,6 +134,13 @@ export class Gameplay extends Phaser.Scene {
     /* Wire the projectile system reference into combat system (created after it). */
     towerCombatSystem.setProjectileSystem(projectileSystem);
 
+    /* Priority 5: Economy system -- centralized currency and score mutations.
+     * Listens to ENEMY_DIED, WAVE_COMPLETED, TOWER_REMOVED. Exposes trySpend()
+     * API consumed by BOLT-005 (placement) and BOLT-007 (upgrades). */
+    const economySystem = new EconomySystem(
+      this, this.gameState, this.configManager,
+    );
+
     /* Priority 6: Upgrade system -- tower upgrades, repair, HP, panel UI.
      * Needs ConfigManager, TowerRegistry. Needs TowerPlacementSystem for
      * placement mode checks (wired via setter after construction). */
@@ -141,8 +149,16 @@ export class Gameplay extends Phaser.Scene {
     );
     upgradeSystem.setTowerPlacementSystem(towerPlacementSystem);
 
+    /* Wire EconomySystem into BOLT-005 and BOLT-007 so they call trySpend()
+     * instead of mutating GameState.currency directly. */
+    towerPlacementSystem.setEconomySystem(economySystem);
+    upgradeSystem.setEconomySystem(economySystem);
+
     /* Store placement system on registry so combat system can check placement mode. */
     this.registry.set('towerPlacementSystem', towerPlacementSystem);
+
+    /* Store economy system on registry for BOLT-009 access (getRunStats at run end). */
+    this.registry.set('economySystem', economySystem);
 
     this.systems = [
       mapGenerator,          /* Priority 0 (map) */
@@ -154,7 +170,7 @@ export class Gameplay extends Phaser.Scene {
       enemySystem,           /* Priority 2 (enemy) -- BOLT-003 */
       towerCombatSystem,     /* Priority 3 (tower combat) -- BOLT-006 */
       projectileSystem,      /* Priority 4 (projectile) -- BOLT-006 */
-      /* Priority 5: EconomySystem (BOLT-008) */
+      economySystem,         /* Priority 5 (economy) -- BOLT-008 */
       upgradeSystem,         /* Priority 6 (upgrades) -- BOLT-007 */
     ];
 
@@ -214,6 +230,7 @@ export class Gameplay extends Phaser.Scene {
     this.registry.remove('configManager');
     this.registry.remove('enemySystem');
     this.registry.remove('towerPlacementSystem');
+    this.registry.remove('economySystem');
 
     /* Remove shutdown listener to prevent double-firing on next create(). */
     this.events.off('shutdown', this.handleShutdown, this);
@@ -232,7 +249,7 @@ export class Gameplay extends Phaser.Scene {
     const seed = envConfig.gameSeed || Date.now().toString();
 
     return {
-      currency: 100,
+      currency: 0,  /* EconomySystem sets this from economy.json in init() */
       score: 0,
       currentWave: 0,
       totalWaves: 20,

@@ -1,0 +1,7 @@
+{
+  "startingCurrency": 150,
+  "waveBonusBase": 10,
+  "waveBonusPerWave": 5,
+  "earlyStartBonus": 25,
+  "waveScoreBonusPerWave": 500
+}

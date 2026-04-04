@@ -32,6 +32,7 @@ import type {
 } from '../types/events';
 import type { ConfigManager } from '../utils/config-manager';
 import type { TowerRegistry } from './tower-registry';
+import type { EconomySystem } from './economy-system';
 import { resolveEffectiveStats } from '../utils/stat-resolver';
 import { DEPTH_TOWER_HEALTH_BARS, DEPTH_UI } from '../config/depth-layers';
 
@@ -118,6 +119,9 @@ export class UpgradeSystem extends BaseSystem {
   /** Reference to TowerPlacementSystem for placement mode check, set after construction. */
   private placementSystem: { isInPlacementMode(): boolean; enterPlacementMode(id: string): void } | null = null;
 
+  /** EconomySystem reference for centralized currency spending. Set after construction. */
+  private economySystem: EconomySystem | null = null;
+
   /** The tower currently displayed in the panel, or null. */
   private selectedTowerId: string | null = null;
 
@@ -166,6 +170,16 @@ export class UpgradeSystem extends BaseSystem {
    */
   setTowerPlacementSystem(ps: { isInPlacementMode(): boolean; enterPlacementMode(id: string): void }): void {
     this.placementSystem = ps;
+  }
+
+  /**
+   * Injects the EconomySystem reference for centralized currency spending.
+   * Called by Gameplay.create() after both systems are constructed.
+   *
+   * @param economy - The EconomySystem instance that owns all currency mutations.
+   */
+  setEconomySystem(economy: EconomySystem): void {
+    this.economySystem = economy;
   }
 
   // ---------------------------------------------------------------------------
@@ -614,12 +628,13 @@ export class UpgradeSystem extends BaseSystem {
     const nextTier = upgrades.find(u => u.tier === tower.upgradeLevel + 1);
     if (!nextTier) return;
 
-    /* Validate currency. */
-    if (this.gameState.currency < nextTier.cost) return;
-
-    /* Deduct currency (provisional -- BOLT-008 will formalize). */
-    this.gameState.currency -= nextTier.cost;
-    this.emitCurrencyChanged(-nextTier.cost, 'tower_upgrade');
+    /* Deduct currency via EconomySystem (BOLT-008 owns all currency mutations). */
+    if (this.economySystem) {
+      const success = this.economySystem.trySpend(nextTier.cost, 'tower_upgrade');
+      if (!success) return;
+    } else if (this.gameState.currency < nextTier.cost) {
+      return;
+    }
 
     /* Update tower state. */
     tower.upgradeLevel = nextTier.tier;
@@ -681,11 +696,14 @@ export class UpgradeSystem extends BaseSystem {
     if (tower.currentHp >= stats.maxHp) return;
 
     const repairCost = this.calcRepairCost(tower, stats.maxHp);
-    if (this.gameState.currency < repairCost) return;
 
-    /* Deduct currency. */
-    this.gameState.currency -= repairCost;
-    this.emitCurrencyChanged(-repairCost, 'tower_repair');
+    /* Deduct currency via EconomySystem (BOLT-008 owns all currency mutations). */
+    if (this.economySystem) {
+      const success = this.economySystem.trySpend(repairCost, 'tower_repair');
+      if (!success) return;
+    } else if (this.gameState.currency < repairCost) {
+      return;
+    }
 
     const hpRestored = stats.maxHp - tower.currentHp;
     tower.currentHp = stats.maxHp;
@@ -729,9 +747,8 @@ export class UpgradeSystem extends BaseSystem {
     /* Destroy sprite. */
     tower.sprite.destroy();
 
-    /* Credit currency. */
-    this.gameState.currency += refund;
-    this.emitCurrencyChanged(refund, 'tower_sell');
+    /* Refund is handled by EconomySystem via TOWER_REMOVED event listener.
+     * No direct currency mutation here -- EconomySystem owns all credits. */
 
     /* Emit TOWER_REMOVED event (same as BOLT-005 sell). */
     const payload: TowerRemovedPayload = {
@@ -925,20 +942,4 @@ export class UpgradeSystem extends BaseSystem {
     return Math.max(MIN_REPAIR_COST, Math.ceil(missing / HP_PER_GOLD));
   }
 
-  // ---------------------------------------------------------------------------
-  // Currency event helper
-  // ---------------------------------------------------------------------------
-
-  /**
-   * Emits CURRENCY_CHANGED event after a currency mutation.
-   * Provisional -- BOLT-008 may formalize this into a central API.
-   */
-  private emitCurrencyChanged(delta: number, reason: string): void {
-    const payload: CurrencyChangedPayload = {
-      newAmount: this.gameState.currency,
-      delta,
-      reason,
-    };
-    this.emit(GAME_EVENTS.CURRENCY_CHANGED, payload);
-  }
 }

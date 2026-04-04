@@ -288,6 +288,35 @@ try {
 }
 
 // ---------------------------------------------------------------------------
+// Validate economy.json
+// ---------------------------------------------------------------------------
+const economyConfigPath = resolve(DATA_DIR, 'economy.json');
+try {
+  const economyContent = readFileSync(economyConfigPath, 'utf-8');
+  const economyConfig = JSON.parse(economyContent) as Record<string, unknown>;
+
+  /* All fields are required positive integers. */
+  const economyFields = [
+    'startingCurrency', 'waveBonusBase', 'waveBonusPerWave',
+    'earlyStartBonus', 'waveScoreBonusPerWave',
+  ];
+  for (const field of economyFields) {
+    if (!(field in economyConfig)) {
+      errors.push(`economy.json: missing required field "${field}"`);
+    } else if (typeof economyConfig[field] !== 'number') {
+      errors.push(`economy.json: field "${field}" expected number, got ${typeof economyConfig[field]}`);
+    }
+  }
+
+  /* startingCurrency must be > 0. */
+  if (typeof economyConfig.startingCurrency === 'number' && economyConfig.startingCurrency <= 0) {
+    errors.push('economy.json: "startingCurrency" must be > 0');
+  }
+} catch (err) {
+  errors.push(`economy.json: failed to read or parse -- ${String(err)}`);
+}
+
+// ---------------------------------------------------------------------------
 // Check for sprite key collisions across all configs
 // ---------------------------------------------------------------------------
 const allSpriteKeys: Array<{ key: string; source: string }> = [];

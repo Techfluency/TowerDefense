@@ -18,6 +18,7 @@ import { GAME_EVENTS } from '../types/game-types';
 import type { GameState, TowerDefinition } from '../types/game-types';
 import type { TileClickedPayload, TileHoverPayload, TowerPlacedPayload, TowerRemovedPayload } from '../types/events';
 import type { ConfigManager } from '../utils/config-manager';
+import type { EconomySystem } from './economy-system';
 import { resolveEffectiveStats } from '../utils/stat-resolver';
 import type { TowerRegistry } from './tower-registry';
 import type { MapData } from '../data/map-data';
@@ -93,6 +94,9 @@ export class TowerPlacementSystem extends BaseSystem {
   private readonly configManager: ConfigManager;
   private readonly towerRegistry: TowerRegistry;
 
+  /** EconomySystem reference for centralized currency spending. Set after construction. */
+  private economySystem: EconomySystem | null = null;
+
   /** MapData reference, resolved after MAP_READY fires. */
   private mapData: MapData | null = null;
 
@@ -136,6 +140,16 @@ export class TowerPlacementSystem extends BaseSystem {
     super(scene, gameState);
     this.configManager = configManager;
     this.towerRegistry = towerRegistry;
+  }
+
+  /**
+   * Injects the EconomySystem reference for centralized currency spending.
+   * Called by Gameplay.create() after both systems are constructed.
+   *
+   * @param economy - The EconomySystem instance that owns all currency mutations.
+   */
+  setEconomySystem(economy: EconomySystem): void {
+    this.economySystem = economy;
   }
 
   /**
@@ -633,8 +647,11 @@ export class TowerPlacementSystem extends BaseSystem {
       def.id, col, row, worldX, worldY, def.cost, towerSprite, effectiveStats.maxHp,
     );
 
-    /* Deduct currency directly (provisional -- BOLT-008 will formalize). */
-    this.gameState.currency -= def.cost;
+    /* Deduct currency via EconomySystem (BOLT-008 owns all currency mutations). */
+    if (this.economySystem) {
+      const success = this.economySystem.trySpend(def.cost, 'tower_placed');
+      if (!success) return;
+    }
 
     /* Emit TOWER_PLACED event for downstream bolts. */
     const eventPayload: TowerPlacedPayload = {
@@ -751,8 +768,8 @@ export class TowerPlacementSystem extends BaseSystem {
     /* Destroy the tower sprite. */
     tower.sprite.destroy();
 
-    /* Credit refund currency. */
-    this.gameState.currency += refund;
+    /* Refund is handled by EconomySystem via TOWER_REMOVED event listener.
+     * No direct currency mutation here -- EconomySystem owns all credits. */
 
     /* Emit TOWER_REMOVED event for downstream bolts. */
     const payload: TowerRemovedPayload = {

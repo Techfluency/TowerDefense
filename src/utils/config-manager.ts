@@ -17,6 +17,7 @@ import type {
   ProjectileDefinition,
   MapConfigDefinition,
   TowerUpgradeTier,
+  EconomyConfig,
 } from '../types/game-types';
 
 /** Cache keys matching what the Preload scene uses when loading JSON files. */
@@ -27,6 +28,7 @@ const CACHE_KEYS = {
   PROJECTILES: 'config-projectiles',
   MAP: 'config-map',
   TOWER_UPGRADES: 'config-tower-upgrades',
+  ECONOMY: 'config-economy',
 } as const;
 
 export class ConfigManager {
@@ -47,6 +49,9 @@ export class ConfigManager {
 
   /** Tower upgrade tiers indexed by towerId for O(1) lookup. */
   private readonly towerUpgrades: Map<string, TowerUpgradeTier[]>;
+
+  /** Economy balance parameters (single object, not an array). */
+  private readonly economyConfig: EconomyConfig;
 
   /**
    * Reads all config data from the Phaser cache. Call this after the
@@ -71,6 +76,9 @@ export class ConfigManager {
     );
     this.towerUpgrades = this.indexUpgradesByTowerId(
       this.loadFromCache<TowerUpgradeTier>(scene, CACHE_KEYS.TOWER_UPGRADES, 'tower-upgrades.json'),
+    );
+    this.economyConfig = this.loadObjectFromCache<EconomyConfig>(
+      scene, CACHE_KEYS.ECONOMY, 'economy.json',
     );
   }
 
@@ -172,6 +180,16 @@ export class ConfigManager {
       );
     }
     return data;
+  }
+
+  /**
+   * Returns the economy balance configuration.
+   * Loaded from economy.json -- a single object, not an array.
+   *
+   * @returns The economy configuration with starting currency and bonus formulas.
+   */
+  getEconomy(): EconomyConfig {
+    return this.economyConfig;
   }
 
   /**

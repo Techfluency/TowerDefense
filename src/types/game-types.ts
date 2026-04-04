@@ -202,6 +202,41 @@ export interface EffectiveTowerStats {
 }
 
 // ---------------------------------------------------------------------------
+// Economy Definitions
+// ---------------------------------------------------------------------------
+
+/**
+ * Balance parameters for the economy system, loaded from economy.json.
+ * Controls starting currency, wave bonuses, and scoring formulas.
+ * Consumed by EconomySystem (BOLT-008) via ConfigManager.getEconomy().
+ */
+export interface EconomyConfig {
+  /** Currency granted at run start. Enough for 2-3 tier-1 towers. */
+  startingCurrency: number;
+  /** Base currency for wave completion bonus. Formula: waveBonusBase + (waveBonusPerWave * waveNumber). */
+  waveBonusBase: number;
+  /** Currency added per wave number in the wave completion bonus. */
+  waveBonusPerWave: number;
+  /** Flat currency bonus for starting a wave early (skipping prep countdown). */
+  earlyStartBonus: number;
+  /** Score multiplied by waveNumber on wave completion. Formula: waveScoreBonusPerWave * waveNumber. */
+  waveScoreBonusPerWave: number;
+}
+
+/**
+ * Accumulated run statistics tracked by EconomySystem.
+ * Read by BOLT-009 at run end for the summary screen.
+ */
+export interface RunStats {
+  /** Number of ENEMY_DIED events processed during the run. */
+  totalKills: number;
+  /** Current value of GameState.score at time of call. */
+  finalScore: number;
+  /** Highest waveNumber from WAVE_COMPLETED events received. */
+  wavesCompleted: number;
+}
+
+// ---------------------------------------------------------------------------
 // Map and Grid
 // ---------------------------------------------------------------------------
 
