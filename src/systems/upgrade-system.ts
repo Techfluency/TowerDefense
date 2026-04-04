@@ -36,6 +36,7 @@ import type { EconomySystem } from './economy-system';
 import { resolveEffectiveStats } from '../utils/stat-resolver';
 import { DEPTH_TOWER_HEALTH_BARS, DEPTH_UI } from '../config/depth-layers';
 import type { VFXManager } from '../vfx/vfx-manager';
+import { scaleIn } from '../ui/ui-animations';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -546,6 +547,9 @@ export class UpgradeSystem extends BaseSystem {
     for (const el of elements) {
       this.panelContainer.add(el);
     }
+
+    /* BOLT-016: Animate the panel in with a scale pop effect. */
+    scaleIn(this.scene, this.panelContainer);
   }
 
   /**

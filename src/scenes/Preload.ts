@@ -14,11 +14,15 @@
  *   to /assets in development and can be overridden for CDN in production.
  * - The asset manifest (src/config/asset-manifest.ts) is the single source
  *   of truth for all asset keys and paths.
+ *
+ * BOLT-016: Loading bar uses smooth tween fill animation instead of
+ * snapping to discrete progress values.
  */
 import Phaser from 'phaser';
 import { SCENE_KEYS, GAME_WIDTH, GAME_HEIGHT } from '../config/game-config';
 import { ASSET_MANIFEST } from '../config/asset-manifest';
 import type { EnvConfig } from '../config/env';
+import { LOADING_BAR_TWEEN_MS } from '../ui/ui-animations';
 
 export class Preload extends Phaser.Scene {
   constructor() {
@@ -55,11 +59,22 @@ export class Preload extends Phaser.Scene {
       })
       .setOrigin(0.5);
 
-    /* Update the progress bar width as each asset loads. */
+    /* BOLT-016: Smooth-fill progress bar using tweened proxy value.
+     * Instead of snapping to discrete progress values, we tween the visual
+     * fill width for a polished loading experience. */
+    const progressProxy = { displayValue: 0 };
     this.load.on('progress', (value: number) => {
-      progressBar.clear();
-      progressBar.fillStyle(0x4a90d9, 1);
-      progressBar.fillRect(barX, barY, barWidth * value, barHeight);
+      this.tweens.add({
+        targets: progressProxy,
+        displayValue: value,
+        duration: LOADING_BAR_TWEEN_MS,
+        ease: 'Sine.easeOut',
+        onUpdate: () => {
+          progressBar.clear();
+          progressBar.fillStyle(0x4a90d9, 1);
+          progressBar.fillRect(barX, barY, barWidth * progressProxy.displayValue, barHeight);
+        },
+      });
     });
 
     /* Clean up loading UI when done. */

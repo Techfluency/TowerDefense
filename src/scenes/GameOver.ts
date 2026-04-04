@@ -5,10 +5,11 @@
  * Replaces the BOLT-001 stub. Receives extended GameOverData from
  * GameStateManager via scene.start() data parameter.
  *
- * BOLT-009 implementation.
+ * BOLT-009 implementation. BOLT-016 adds fade transitions and stat animation.
  */
 import Phaser from 'phaser';
 import { SCENE_KEYS, GAME_WIDTH, GAME_HEIGHT } from '../config/game-config';
+import { fadeTransition, fadeIn, staggerFadeIn, countUp } from '../ui/ui-animations';
 
 /** Extended data passed from GameStateManager when transitioning to GameOver. */
 interface GameOverData {
@@ -71,6 +72,9 @@ export class GameOver extends Phaser.Scene {
     /* --- Background --- */
     this.cameras.main.setBackgroundColor('#1A1A2E');
 
+    /* BOLT-016: Fade in from black on scene entry. */
+    fadeIn(this);
+
     /* --- Outcome Header --- */
     const headerText = victory ? 'VICTORY' : 'DEFEAT';
     const headerColor = victory ? '#4AFF4A' : '#FF4A4A';
@@ -101,24 +105,34 @@ export class GameOver extends Phaser.Scene {
       });
     }
 
-    /* --- Stats Block --- */
+    /* --- Stats Block (BOLT-016: animated count-up + staggered reveal) --- */
     const statsY = GAME_HEIGHT * 0.4;
-    const statLines: string[] = [`Final Score: ${score}`];
-
-    if (victory) {
-      statLines.push(`Objective HP: ${objectiveHpRemaining} / 100`);
-    } else {
-      statLines.push(`Reached Wave: ${wavesSurvived}`);
-    }
-    statLines.push(`Enemies Defeated: ${totalKills}`);
-
-    this.add.text(GAME_WIDTH / 2, statsY, statLines.join('\n'), {
+    const statStyle = {
       fontSize: '20px',
       fontFamily: 'monospace',
       color: '#CCCCCC',
-      align: 'center',
-      lineSpacing: 12,
-    }).setOrigin(0.5);
+    };
+
+    /* Create individual stat text objects for staggered animation. */
+    const scoreText = this.add.text(GAME_WIDTH / 2, statsY, 'Final Score: 0', statStyle).setOrigin(0.5);
+    countUp(this, scoreText, 0, score, 'Final Score: ');
+
+    const statItems: Phaser.GameObjects.Text[] = [scoreText];
+
+    if (victory) {
+      const hpText = this.add.text(GAME_WIDTH / 2, statsY + 32, `Objective HP: ${objectiveHpRemaining} / 100`, statStyle).setOrigin(0.5);
+      statItems.push(hpText);
+    } else {
+      const waveText = this.add.text(GAME_WIDTH / 2, statsY + 32, `Reached Wave: ${wavesSurvived}`, statStyle).setOrigin(0.5);
+      statItems.push(waveText);
+    }
+
+    const killText = this.add.text(GAME_WIDTH / 2, statsY + 64, 'Enemies Defeated: 0', statStyle).setOrigin(0.5);
+    countUp(this, killText, 0, totalKills, 'Enemies Defeated: ');
+    statItems.push(killText);
+
+    /* BOLT-016: Stagger the stat rows appearing. */
+    staggerFadeIn(this, statItems, 120, 250);
 
     /* --- Play Again Button --- */
     const playY = GAME_HEIGHT * 0.65;
@@ -128,7 +142,8 @@ export class GameOver extends Phaser.Scene {
       'Play Again',
       { fontSize: '22px', fontFamily: 'monospace', fontStyle: 'bold', color: '#FFFFFF' },
       BTN_PLAY_BG, BTN_PLAY_HOVER,
-      () => this.scene.start(SCENE_KEYS.GAMEPLAY),
+      /* BOLT-016: Fade out before scene switch. */
+      () => fadeTransition(this, () => this.scene.start(SCENE_KEYS.GAMEPLAY)),
     );
 
     /* --- Main Menu Button --- */
@@ -138,7 +153,8 @@ export class GameOver extends Phaser.Scene {
       'Main Menu',
       { fontSize: '18px', fontFamily: 'monospace', color: '#AAAAAA' },
       BTN_MENU_BG, BTN_MENU_HOVER,
-      () => this.scene.start(SCENE_KEYS.MAIN_MENU),
+      /* BOLT-016: Fade out before scene switch. */
+      () => fadeTransition(this, () => this.scene.start(SCENE_KEYS.MAIN_MENU)),
     );
   }
 

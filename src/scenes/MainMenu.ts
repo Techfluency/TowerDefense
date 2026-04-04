@@ -9,11 +9,12 @@
  *   Reduce Visual Intensity toggle
  * - Settings persistence via registry (session-only)
  *
- * BOLT-009 implementation.
+ * BOLT-009 implementation. BOLT-016 adds fade transitions and panel animation.
  */
 import Phaser from 'phaser';
 import { SCENE_KEYS, GAME_WIDTH, GAME_HEIGHT } from '../config/game-config';
 import type { EnvConfig } from '../config/env';
+import { fadeTransition, fadeIn, scaleIn } from '../ui/ui-animations';
 
 /** Settings state stored on registry. */
 interface SettingsState {
@@ -73,6 +74,9 @@ export class MainMenu extends Phaser.Scene {
     /* --- Background --- */
     this.cameras.main.setBackgroundColor('#1A1A2E');
 
+    /* BOLT-016: Fade in from black on scene entry. */
+    fadeIn(this);
+
     /* --- Title --- */
     this.add.text(GAME_WIDTH / 2, GAME_HEIGHT * 0.25, 'Random Gen', {
       fontSize: '52px',
@@ -102,7 +106,8 @@ export class MainMenu extends Phaser.Scene {
       'New Game',
       { fontSize: '22px', fontFamily: 'monospace', fontStyle: 'bold', color: '#FFFFFF' },
       BTN_PLAY_BG, BTN_PLAY_HOVER,
-      () => this.scene.start(SCENE_KEYS.GAMEPLAY),
+      /* BOLT-016: Fade out before scene switch for smooth transition. */
+      () => fadeTransition(this, () => this.scene.start(SCENE_KEYS.GAMEPLAY)),
     );
 
     /* --- Settings Button --- */
@@ -201,13 +206,26 @@ export class MainMenu extends Phaser.Scene {
     container.add(closeBtn);
 
     this.settingsPanel = container;
+
+    /* BOLT-016: Animate the panel in with a scale pop. */
+    scaleIn(this, container);
   }
 
-  /** Closes the settings panel. */
+  /** Closes the settings panel with a brief scale-down animation. */
   private closeSettingsPanel(): void {
     if (this.settingsPanel) {
-      this.settingsPanel.destroy();
+      const panel = this.settingsPanel;
       this.settingsPanel = null;
+      /* BOLT-016: Scale-down before destroy for polished dismiss. */
+      this.tweens.add({
+        targets: panel,
+        scaleX: 0,
+        scaleY: 0,
+        alpha: 0,
+        duration: 150,
+        ease: 'Sine.easeIn',
+        onComplete: () => panel.destroy(),
+      });
     }
   }
 

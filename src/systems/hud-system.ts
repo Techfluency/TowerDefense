@@ -38,6 +38,13 @@ import { DEPTH_FLOATING_TEXT, DEPTH_UI, DEPTH_TOOLTIP, DEPTH_OVERLAY } from '../
 import { GAME_WIDTH, GAME_HEIGHT } from '../config/game-config';
 import type { Enemy } from '../entities/enemy';
 import { EnemyState } from '../entities/enemy';
+import {
+  countUp,
+  fadeInTooltip,
+  slideDownFrom,
+  staggerFadeIn,
+} from '../ui/ui-animations';
+import { NotificationToast } from '../ui/notification-toast';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -150,6 +157,16 @@ export class HudSystem extends BaseSystem {
   private waveSnapshot: PerWaveSnapshot | null = null;
   private runningKills = 0;
 
+  // --- BOLT-016: Toast notification system ---
+  private toastSystem: NotificationToast | null = null;
+
+  // --- BOLT-016: Previous HUD values for count-up animation tracking ---
+  private prevCurrency = 0;
+  private prevScore = 0;
+
+  // --- BOLT-016: Damage flash timer for objective HP bar ---
+  private damageFlashUntil = 0;
+
   // --- System references (resolved at init) ---
   private waveSystemRef: {
     getState(): string;
@@ -188,6 +205,13 @@ export class HudSystem extends BaseSystem {
     this.badgeGraphics = this.scene.add.graphics();
     this.badgeGraphics.setDepth(DEPTH_UI);
 
+    /* --- BOLT-016: Initialize toast notification system --- */
+    this.toastSystem = new NotificationToast(this.scene);
+
+    /* --- BOLT-016: Initialize previous values for count-up tracking --- */
+    this.prevCurrency = this.gameState.currency;
+    this.prevScore = this.gameState.score;
+
     /* --- Register event listeners --- */
     this.listen(GAME_EVENTS.CURRENCY_CHANGED, this.onCurrencyChanged as (...args: never[]) => void);
     this.listen(GAME_EVENTS.SCORE_CHANGED, this.onScoreChanged as (...args: never[]) => void);
@@ -197,6 +221,8 @@ export class HudSystem extends BaseSystem {
     this.listen(GAME_EVENTS.TOWER_REPAIRED, this.onTowerRepaired as (...args: never[]) => void);
     this.listen(GAME_EVENTS.ENEMY_DIED, this.onEnemyDied as (...args: never[]) => void);
     this.listen(GAME_EVENTS.TILE_CLICKED, this.onTileClicked as (...args: never[]) => void);
+    /* BOLT-016: Listen for objective damage to trigger HP bar flash + toast. */
+    this.listen(GAME_EVENTS.ENEMY_REACHED_OBJECTIVE, this.onObjectiveDamaged as (...args: never[]) => void);
 
     /* Initialize localStorage coach mark flags. */
     try {
@@ -269,6 +295,10 @@ export class HudSystem extends BaseSystem {
     /* Destroy wave preview. */
     this.wavePreviewContainer?.destroy();
 
+    /* BOLT-016: Destroy toast system. */
+    this.toastSystem?.destroy();
+    this.toastSystem = null;
+
     /* Remove from registry. */
     this.scene.registry.remove('hudSystem');
 
@@ -282,6 +312,14 @@ export class HudSystem extends BaseSystem {
   /** Returns true if the wave summary overlay is currently visible. */
   isWaveSummaryVisible(): boolean {
     return this.waveSummaryContainer !== null;
+  }
+
+  /**
+   * Returns the toast notification system for external toast display.
+   * BOLT-016 addition.
+   */
+  getToastSystem(): NotificationToast | null {
+    return this.toastSystem;
   }
 
   /** Dismisses the wave summary overlay immediately. */
@@ -449,9 +487,20 @@ export class HudSystem extends BaseSystem {
     }
 
     /* Compute alpha for danger pulsing (1Hz sine wave). */
-    const alpha = dangerActive
-      ? 0.7 + 0.3 * Math.sin(time * 0.006)
-      : 1;
+    let alpha: number;
+    if (dangerActive) {
+      alpha = 0.7 + 0.3 * Math.sin(time * 0.006);
+    } else {
+      alpha = 1;
+    }
+
+    /* BOLT-016: Damage flash effect -- briefly brighten the bar on hit.
+     * The flash overrides the fill color with a bright red pulse. */
+    const isFlashing = Date.now() < this.damageFlashUntil;
+    if (isFlashing) {
+      fillColor = 0xFF0000;
+      alpha = 0.6 + 0.4 * Math.sin(time * 0.02);
+    }
 
     /* Border. */
     this.objBarGraphics.lineStyle(1, OBJ_BAR_BORDER, 1);
@@ -606,6 +655,10 @@ export class HudSystem extends BaseSystem {
 
     this.waveSummaryContainer = container;
 
+    /* BOLT-016: Animate the overlay with slide-down and staggered stat rows. */
+    slideDownFrom(this.scene, container, GAME_HEIGHT / 2, GAME_HEIGHT / 2 - 200, 300);
+    staggerFadeIn(this.scene, [killsText, currText, scoreStatText], 100, 200);
+
     /* Auto-dismiss after 5 seconds with fade. */
     this.waveSummaryTimer = this.scene.time.delayedCall(WAVE_SUMMARY_AUTO_DISMISS_MS, () => {
       if (this.waveSummaryContainer) {
@@ -720,6 +773,9 @@ export class HudSystem extends BaseSystem {
     }
 
     this.tooltipContainer = container;
+
+    /* BOLT-016: Fade in the tooltip with a slight upward slide. */
+    fadeInTooltip(this.scene, container);
   }
 
   /** Destroys the current tooltip. */
@@ -929,9 +985,19 @@ export class HudSystem extends BaseSystem {
    * the position here and use it when CURRENCY_CHANGED arrives. */
   private lastDeathPos: { x: number; y: number } | null = null;
 
-  /** Updates currency display and spawns floating reward text. */
+  /** Updates currency display with count-up animation and spawns floating reward text. */
   private onCurrencyChanged(payload: CurrencyChangedPayload): void {
-    this.currencyText?.setText(`${payload.newAmount}`);
+    /* BOLT-016: Animate the currency counter only for gains (positive delta).
+     * Spend events (tower_placed, upgrades) update instantly to avoid confusion
+     * where the displayed value doesn't match the player's actual balance. */
+    if (this.currencyText) {
+      if (payload.delta > 0) {
+        countUp(this.scene, this.currencyText, this.prevCurrency, payload.newAmount);
+      } else {
+        this.currencyText.setText(`${payload.newAmount}`);
+      }
+    }
+    this.prevCurrency = payload.newAmount;
 
     /* Only show floating text for kill rewards and wave/early bonuses. */
     if (payload.delta > 0) {
@@ -939,7 +1005,7 @@ export class HudSystem extends BaseSystem {
         /* Show at kill location. */
         this.spawnFloatingText(
           this.lastDeathPos.x, this.lastDeathPos.y,
-          `+${payload.delta}`, 'currency',
+          `+${payload.delta}g`, 'currency',
         );
         this.lastDeathPos = null;
       } else if (payload.reason === 'wave_bonus' || payload.reason === 'early_start_bonus') {
@@ -952,9 +1018,13 @@ export class HudSystem extends BaseSystem {
     }
   }
 
-  /** Updates score display. */
+  /** Updates score display with count-up animation. */
   private onScoreChanged(payload: ScoreChangedPayload): void {
-    this.scoreText?.setText(`Score: ${payload.newScore}`);
+    /* BOLT-016: Animate the score counter from previous value to new value. */
+    if (this.scoreText) {
+      countUp(this.scene, this.scoreText, this.prevScore, payload.newScore, 'Score: ');
+    }
+    this.prevScore = payload.newScore;
   }
 
   /** Handles ENEMY_DIED: records kill position for floating text, increments running kills. */
@@ -965,12 +1035,44 @@ export class HudSystem extends BaseSystem {
   }
 
   /**
+   * BOLT-016: Handles ENEMY_REACHED_OBJECTIVE: triggers HP bar damage flash
+   * and shows a toast notification.
+   */
+  private onObjectiveDamaged(): void {
+    /* Flash the HP bar red for 400ms. */
+    this.damageFlashUntil = Date.now() + 400;
+
+    /* Show a toast notification for objective damage. */
+    this.toastSystem?.show('Objective damaged!', 'high', '#FF4A4A');
+  }
+
+  /**
    * Handles WAVE_STARTED: updates wave display, caches composition,
    * snapshots game state for per-wave deltas, shows build coach mark on wave 1.
+   * BOLT-016: Adds toast notification and wave text slide animation.
    */
   private onWaveStarted(payload: WaveStartedPayload): void {
     this.waveText?.setText(`Wave ${payload.waveNumber} / ${payload.totalWaves}`);
     this.upcomingComposition = payload.upcomingComposition;
+
+    /* BOLT-016: Brief scale-pop on wave text to draw attention. */
+    if (this.waveText) {
+      this.scene.tweens.add({
+        targets: this.waveText,
+        scaleX: 1.3,
+        scaleY: 1.3,
+        duration: 150,
+        yoyo: true,
+        ease: 'Sine.easeOut',
+      });
+    }
+
+    /* BOLT-016: Toast notification for wave start. */
+    if (payload.isBossWave) {
+      this.toastSystem?.show(`Boss Wave ${payload.waveNumber} incoming!`, 'high', '#FF6B35');
+    } else {
+      this.toastSystem?.show(`Wave ${payload.waveNumber} incoming!`, 'normal');
+    }
 
     /* Snapshot current state for per-wave delta tracking. */
     this.waveSnapshot = {
