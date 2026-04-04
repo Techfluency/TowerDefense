@@ -32,6 +32,8 @@ import { TowerCombatSystem } from '../systems/tower-combat-system';
 import { ProjectileSystem } from '../systems/projectile-system';
 import { UpgradeSystem } from '../systems/upgrade-system';
 import { EconomySystem } from '../systems/economy-system';
+import { GameStateManager } from '../systems/game-state-manager';
+import { HudSystem } from '../systems/hud-system';
 import type { BaseSystem } from '../systems/base-system';
 
 export class Gameplay extends Phaser.Scene {
@@ -160,6 +162,14 @@ export class Gameplay extends Phaser.Scene {
     /* Store economy system on registry for BOLT-009 access (getRunStats at run end). */
     this.registry.set('economySystem', economySystem);
 
+    /* Priority 7: Game state manager -- objective HP, game over/victory,
+     * pause/resume, speed multiplier. Purely event-driven (no per-frame). */
+    const gameStateManager = new GameStateManager(this, this.gameState);
+
+    /* Priority 8: HUD system -- all visual HUD rendering, floating text,
+     * overlays, tooltips, enemy badges, coach marks. */
+    const hudSystem = new HudSystem(this, this.gameState);
+
     this.systems = [
       mapGenerator,          /* Priority 0 (map) */
       mapRenderer,           /* Priority 0 (map) */
@@ -172,6 +182,8 @@ export class Gameplay extends Phaser.Scene {
       projectileSystem,      /* Priority 4 (projectile) -- BOLT-006 */
       economySystem,         /* Priority 5 (economy) -- BOLT-008 */
       upgradeSystem,         /* Priority 6 (upgrades) -- BOLT-007 */
+      gameStateManager,      /* Priority 7 (game state) -- BOLT-009 */
+      hudSystem,             /* Priority 8 (HUD) -- BOLT-009 */
     ];
 
     /* Call init() on each system after all are constructed.
@@ -200,9 +212,14 @@ export class Gameplay extends Phaser.Scene {
       return;
     }
 
-    /* Update all systems in priority order. */
+    /* Apply speed multiplier (1x or 2x) to delta for game systems.
+     * HudSystem UI animations use Phaser tweens (real-time), not scaledDelta. */
+    const speedMultiplier = (this.registry.get('speedMultiplier') as number) ?? 1;
+    const scaledDelta = delta * speedMultiplier;
+
+    /* Update all systems in priority order with scaled delta. */
     for (const system of this.systems) {
-      system.update(time, delta);
+      system.update(time, scaledDelta);
     }
   }
 
@@ -231,6 +248,8 @@ export class Gameplay extends Phaser.Scene {
     this.registry.remove('enemySystem');
     this.registry.remove('towerPlacementSystem');
     this.registry.remove('economySystem');
+    /* Note: 'gameStateManager', 'hudSystem', 'speedMultiplier' are removed
+     * by GameStateManager.destroy() and HudSystem.destroy() above. */
 
     /* Remove shutdown listener to prevent double-firing on next create(). */
     this.events.off('shutdown', this.handleShutdown, this);

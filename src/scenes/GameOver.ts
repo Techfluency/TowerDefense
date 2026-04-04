@@ -1,28 +1,35 @@
 /**
- * Game Over scene -- displayed when the player wins or loses.
+ * Game Over scene -- full results screen with victory/defeat differentiation,
+ * run stats, session-best badge, and navigation buttons.
  *
- * Responsibilities:
- * 1. Display the outcome (victory or defeat).
- * 2. Show run summary (score, waves survived, enemies defeated).
- * 3. Provide a "Return to Menu" button.
- * 4. Provide a "Play Again" button for quick restart.
+ * Replaces the BOLT-001 stub. Receives extended GameOverData from
+ * GameStateManager via scene.start() data parameter.
  *
- * This scene receives data from the Gameplay scene via scene.start()
- * data parameter. BOLT-009 will implement the full results screen
- * with detailed stats, animations, and high score comparison.
+ * BOLT-009 implementation.
  */
 import Phaser from 'phaser';
 import { SCENE_KEYS, GAME_WIDTH, GAME_HEIGHT } from '../config/game-config';
 
-/** Data passed from the Gameplay scene when transitioning to GameOver. */
+/** Extended data passed from GameStateManager when transitioning to GameOver. */
 interface GameOverData {
-  /** Whether the player won (survived all waves) or lost (objective destroyed). */
   victory: boolean;
-  /** Final score. */
   score: number;
-  /** Number of waves the player survived. */
   wavesSurvived: number;
+  totalKills: number;
+  objectiveHpRemaining: number;
+  isNewSessionBest: boolean;
 }
+
+/** Button styling constants. */
+const BTN_PLAY_WIDTH = 240;
+const BTN_PLAY_HEIGHT = 48;
+const BTN_MENU_WIDTH = 200;
+const BTN_MENU_HEIGHT = 40;
+const BTN_PLAY_BG = 0x2A4A2A;
+const BTN_PLAY_HOVER = 0x3A6A3A;
+const BTN_MENU_BG = 0x2A2A4A;
+const BTN_MENU_HOVER = 0x3A3A6A;
+const BTN_CORNER_RADIUS = 6;
 
 export class GameOver extends Phaser.Scene {
   constructor() {
@@ -30,74 +37,136 @@ export class GameOver extends Phaser.Scene {
   }
 
   /**
-   * Phaser create lifecycle method.
-   * Receives game result data and builds the results screen.
+   * Builds the full results screen with victory/defeat differentiation,
+   * stats display, session-best badge, and navigation buttons.
    *
-   * @param data - Run results passed from the Gameplay scene.
+   * @param data - Run results passed from GameStateManager.
    */
   create(data: GameOverData): void {
-    /* Default values in case create() is called without data
-     * (e.g., during development when testing this scene directly). */
+    /* Safe defaults for all fields. */
     const victory = data?.victory ?? false;
     const score = data?.score ?? 0;
     const wavesSurvived = data?.wavesSurvived ?? 0;
+    const totalKills = data?.totalKills ?? 0;
+    const objectiveHpRemaining = data?.objectiveHpRemaining ?? 0;
+    const isNewSessionBest = data?.isNewSessionBest ?? false;
+
+    /* --- Background --- */
+    this.cameras.main.setBackgroundColor('#1A1A2E');
 
     /* --- Outcome Header --- */
-    const headerText = victory ? 'Victory!' : 'Defeat';
-    const headerColor = victory ? '#4aff4a' : '#ff4a4a';
+    const headerText = victory ? 'VICTORY' : 'DEFEAT';
+    const headerColor = victory ? '#4AFF4A' : '#FF4A4A';
 
-    this.add
-      .text(GAME_WIDTH / 2, GAME_HEIGHT / 4, headerText, {
-        fontSize: '56px',
-        color: headerColor,
-        fontStyle: 'bold',
-      })
-      .setOrigin(0.5);
+    this.add.text(GAME_WIDTH / 2, GAME_HEIGHT * 0.2, headerText, {
+      fontSize: '56px',
+      fontFamily: 'monospace',
+      fontStyle: 'bold',
+      color: headerColor,
+    }).setOrigin(0.5);
 
-    /* --- Run Summary --- */
-    this.add
-      .text(
-        GAME_WIDTH / 2,
-        GAME_HEIGHT / 2 - 30,
-        `Score: ${score}\nWaves Survived: ${wavesSurvived}`,
-        {
-          fontSize: '24px',
-          color: '#cccccc',
-          align: 'center',
-          lineSpacing: 12,
-        }
-      )
-      .setOrigin(0.5);
+    /* --- Session-Best Badge (conditional) --- */
+    if (isNewSessionBest) {
+      const badge = this.add.text(
+        GAME_WIDTH / 2, GAME_HEIGHT * 0.2 + 50,
+        'NEW BEST!',
+        { fontSize: '18px', fontFamily: 'monospace', fontStyle: 'bold', color: '#FFD700' },
+      ).setOrigin(0.5);
+
+      /* Pulsing alpha animation (0.8 - 1.0). */
+      this.tweens.add({
+        targets: badge,
+        alpha: { from: 0.8, to: 1.0 },
+        duration: 600,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut',
+      });
+    }
+
+    /* --- Stats Block --- */
+    const statsY = GAME_HEIGHT * 0.4;
+    const statLines: string[] = [`Final Score: ${score}`];
+
+    if (victory) {
+      statLines.push(`Objective HP: ${objectiveHpRemaining} / 100`);
+    } else {
+      statLines.push(`Reached Wave: ${wavesSurvived}`);
+    }
+    statLines.push(`Enemies Defeated: ${totalKills}`);
+
+    this.add.text(GAME_WIDTH / 2, statsY, statLines.join('\n'), {
+      fontSize: '20px',
+      fontFamily: 'monospace',
+      color: '#CCCCCC',
+      align: 'center',
+      lineSpacing: 12,
+    }).setOrigin(0.5);
 
     /* --- Play Again Button --- */
-    const playAgain = this.add
-      .text(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 60, 'Play Again', {
-        fontSize: '28px',
-        color: '#4a90d9',
-        fontStyle: 'bold',
-      })
-      .setOrigin(0.5)
+    const playY = GAME_HEIGHT * 0.65;
+    this.createButton(
+      GAME_WIDTH / 2, playY,
+      BTN_PLAY_WIDTH, BTN_PLAY_HEIGHT,
+      'Play Again',
+      { fontSize: '22px', fontFamily: 'monospace', fontStyle: 'bold', color: '#FFFFFF' },
+      BTN_PLAY_BG, BTN_PLAY_HOVER,
+      () => this.scene.start(SCENE_KEYS.GAMEPLAY),
+    );
+
+    /* --- Main Menu Button --- */
+    this.createButton(
+      GAME_WIDTH / 2, playY + BTN_PLAY_HEIGHT + 16,
+      BTN_MENU_WIDTH, BTN_MENU_HEIGHT,
+      'Main Menu',
+      { fontSize: '18px', fontFamily: 'monospace', color: '#AAAAAA' },
+      BTN_MENU_BG, BTN_MENU_HOVER,
+      () => this.scene.start(SCENE_KEYS.MAIN_MENU),
+    );
+  }
+
+  /**
+   * Creates a styled interactive button.
+   *
+   * @param x - Center X.
+   * @param y - Center Y.
+   * @param width - Button width.
+   * @param height - Button height.
+   * @param label - Button text.
+   * @param textStyle - Phaser text style config.
+   * @param bgColor - Normal background color.
+   * @param hoverColor - Hover background color.
+   * @param onClick - Click callback.
+   */
+  private createButton(
+    x: number, y: number,
+    width: number, height: number,
+    label: string,
+    textStyle: Phaser.Types.GameObjects.Text.TextStyle,
+    bgColor: number,
+    hoverColor: number,
+    onClick: () => void,
+  ): void {
+    const bg = this.add.graphics();
+    bg.fillStyle(bgColor, 1);
+    bg.fillRoundedRect(x - width / 2, y - height / 2, width, height, BTN_CORNER_RADIUS);
+
+    const text = this.add.text(x, y, label, textStyle).setOrigin(0.5);
+
+    /* Interactive hit zone. */
+    const hitZone = this.add.zone(x, y, width, height)
       .setInteractive({ useHandCursor: true });
 
-    playAgain.on('pointerover', () => playAgain.setColor('#6ab0ff'));
-    playAgain.on('pointerout', () => playAgain.setColor('#4a90d9'));
-    playAgain.on('pointerdown', () => {
-      this.scene.start(SCENE_KEYS.GAMEPLAY);
+    hitZone.on('pointerover', () => {
+      bg.clear();
+      bg.fillStyle(hoverColor, 1);
+      bg.fillRoundedRect(x - width / 2, y - height / 2, width, height, BTN_CORNER_RADIUS);
     });
-
-    /* --- Return to Menu Button --- */
-    const menuButton = this.add
-      .text(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 120, 'Main Menu', {
-        fontSize: '22px',
-        color: '#666666',
-      })
-      .setOrigin(0.5)
-      .setInteractive({ useHandCursor: true });
-
-    menuButton.on('pointerover', () => menuButton.setColor('#999999'));
-    menuButton.on('pointerout', () => menuButton.setColor('#666666'));
-    menuButton.on('pointerdown', () => {
-      this.scene.start(SCENE_KEYS.MAIN_MENU);
+    hitZone.on('pointerout', () => {
+      bg.clear();
+      bg.fillStyle(bgColor, 1);
+      bg.fillRoundedRect(x - width / 2, y - height / 2, width, height, BTN_CORNER_RADIUS);
     });
+    hitZone.on('pointerdown', onClick);
   }
 }
