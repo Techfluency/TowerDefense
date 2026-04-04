@@ -370,6 +370,64 @@ const enemies = {
   <line x1="40" y1="31" x2="44" y2="29" stroke="#888" stroke-width="1" stroke-linecap="round"/>
   <line x1="40" y1="33" x2="44" y2="35" stroke="#888" stroke-width="1" stroke-linecap="round"/>
 </svg>`,
+
+  // BOLT-017: Shielded Unit -- cyan/blue armored figure with energy shield bubble
+  'enemy-shielded': `<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64">
+  <defs>
+    <filter id="es6"><feDropShadow dx="1" dy="2" stdDeviation="1.5" flood-color="#000" flood-opacity="0.3"/></filter>
+    <radialGradient id="shield-glow" cx="50%" cy="50%" r="60%">
+      <stop offset="0%" stop-color="#44CCFF" stop-opacity="0.05"/>
+      <stop offset="60%" stop-color="#44CCFF" stop-opacity="0.15"/>
+      <stop offset="100%" stop-color="#44CCFF" stop-opacity="0.3"/>
+    </radialGradient>
+  </defs>
+  <ellipse cx="32" cy="56" rx="14" ry="4" fill="#000" opacity="0.2"/>
+  <!-- Shield bubble (outer) -->
+  <ellipse cx="32" cy="32" rx="26" ry="24" fill="url(#shield-glow)" stroke="#44CCFF" stroke-width="1.5" stroke-opacity="0.5"/>
+  <!-- Body -->
+  <rect x="24" y="18" width="16" height="28" rx="4" fill="#4477AA" filter="url(#es6)"/>
+  <rect x="26" y="20" width="12" height="10" fill="#5588BB" opacity="0.5" rx="2"/>
+  <!-- Helmet -->
+  <rect x="22" y="10" width="20" height="14" rx="5" fill="#336699" filter="url(#es6)"/>
+  <rect x="26" y="14" width="12" height="4" rx="1" fill="#88DDFF" opacity="0.8"/>
+  <!-- Arms with shield plates -->
+  <rect x="16" y="20" width="8" height="18" rx="3" fill="#4477AA"/>
+  <rect x="40" y="20" width="8" height="18" rx="3" fill="#4477AA"/>
+  <rect x="14" y="22" width="4" height="12" rx="1" fill="#44CCFF" opacity="0.4"/>
+  <rect x="46" y="22" width="4" height="12" rx="1" fill="#44CCFF" opacity="0.4"/>
+  <!-- Legs -->
+  <rect x="26" y="44" width="5" height="10" rx="2" fill="#335577"/>
+  <rect x="33" y="44" width="5" height="10" rx="2" fill="#335577"/>
+</svg>`,
+
+  // BOLT-017: Support Unit -- green glowing healer/buffer with aura ring
+  'enemy-support': `<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64">
+  <defs>
+    <filter id="es7"><feDropShadow dx="1" dy="2" stdDeviation="1.5" flood-color="#000" flood-opacity="0.3"/></filter>
+    <radialGradient id="aura-glow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#44FF44" stop-opacity="0"/>
+      <stop offset="60%" stop-color="#44FF44" stop-opacity="0.08"/>
+      <stop offset="100%" stop-color="#44FF44" stop-opacity="0.2"/>
+    </radialGradient>
+  </defs>
+  <ellipse cx="32" cy="56" rx="12" ry="4" fill="#000" opacity="0.15"/>
+  <!-- Aura glow ring -->
+  <circle cx="32" cy="32" r="28" fill="url(#aura-glow)"/>
+  <circle cx="32" cy="32" r="28" fill="none" stroke="#44FF44" stroke-width="1" stroke-opacity="0.35" stroke-dasharray="4 3"/>
+  <!-- Robed body -->
+  <path d="M24,22 Q22,46 20,54 L44,54 Q42,46 40,22 Z" fill="#2A6B2E" filter="url(#es7)"/>
+  <path d="M26,24 Q24,42 23,50 L41,50 Q40,42 38,24 Z" fill="#347D37" opacity="0.5"/>
+  <!-- Hood -->
+  <ellipse cx="32" cy="16" rx="10" ry="9" fill="#2A6B2E" filter="url(#es7)"/>
+  <ellipse cx="32" cy="17" rx="7" ry="5" fill="#1A4A1E"/>
+  <!-- Glowing eyes -->
+  <circle cx="29" cy="16" r="1.5" fill="#88FF88"/>
+  <circle cx="35" cy="16" r="1.5" fill="#88FF88"/>
+  <!-- Staff with green crystal -->
+  <line x1="46" y1="10" x2="46" y2="52" stroke="#5A3A1A" stroke-width="2.5" stroke-linecap="round"/>
+  <polygon points="46,6 42,12 50,12" fill="#44FF44" stroke="#22CC22" stroke-width="0.5"/>
+  <circle cx="46" cy="9" r="2" fill="#88FF88" opacity="0.6"/>
+</svg>`,
 };
 
 // ═══════════════════════════════════════════════════════════════════════
