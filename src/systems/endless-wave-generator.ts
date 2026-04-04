@@ -135,12 +135,6 @@ export function generateEndlessWave(
   gameSeed: string,
   config: EndlessConfig,
 ): WaveDefinition {
-  if (waveNumber < config.scaledWaveStart) {
-    throw new Error(
-      `generateEndlessWave: waveNumber ${waveNumber} is below scaledWaveStart ${config.scaledWaveStart}`,
-    );
-  }
-
   /* Derive a unique per-wave RNG from the game seed. */
   const waveSeed = deriveWaveSeed(gameSeed, waveNumber);
   const rng = createSeededRng(waveSeed);
@@ -148,8 +142,9 @@ export function generateEndlessWave(
   /* Determine if this is a boss wave (every bossWaveInterval waves). */
   const isBossWave = waveNumber % config.bossWaveInterval === 0;
 
-  /* Calculate the number of waves beyond the campaign for scaling. */
-  const wavesIntEndless = waveNumber - config.scaledWaveStart;
+  /* Calculate the number of waves beyond the campaign for scaling.
+   * Clamped to 0 in case the generator is called for waves below scaledWaveStart. */
+  const wavesIntEndless = Math.max(0, waveNumber - config.scaledWaveStart);
 
   /* --- Enemy count scaling ---
    * Starts at baseEnemyCount, grows by enemyCountGrowthRate per wave,
