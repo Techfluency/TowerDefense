@@ -25,7 +25,13 @@ export const DEPTH_PLACEMENT_GHOST = 17;
 /** Flying enemies -- above ground enemies and towers. */
 export const DEPTH_ENEMY_FLYING = 20;
 
-/** Health bar overlay -- above all enemy sprites. */
+/** Support aura circle -- below enemy ground sprites, visible beneath them. BOLT-017. */
+export const DEPTH_SUPPORT_AURA = 9;
+
+/** Shield overlay graphic -- tracks shielded enemies, above flying enemies. BOLT-017. */
+export const DEPTH_SHIELD_OVERLAY = 20.5;
+
+/** Health bar overlay -- above all enemy sprites (shield bars drawn here too). */
 export const DEPTH_HEALTH_BARS = 21;
 
 /** Tower health bars -- above enemy health bars, below projectiles. BOLT-007. */

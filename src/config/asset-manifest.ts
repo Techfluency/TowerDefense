@@ -75,6 +75,10 @@ export const ASSET_MANIFEST: AssetManifest = {
     { key: 'enemy-flyer', path: 'sprites/enemy-flyer.png' },
     { key: 'enemy-swarm', path: 'sprites/enemy-swarm.png' },
 
+    /* BOLT-017: Advanced enemy archetype sprites. */
+    { key: 'enemy-shielded', path: 'sprites/enemy-shielded.png' },
+    { key: 'enemy-support', path: 'sprites/enemy-support.png' },
+
     /* Projectile placeholder sprites (yellow variants). */
     { key: 'projectile-arrow', path: 'sprites/projectile-arrow.png' },
     { key: 'projectile-blast', path: 'sprites/projectile-blast.png' },

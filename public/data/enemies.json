@@ -63,5 +63,40 @@
     "movementType": "ground",
     "spriteKey": "enemy-swarm",
     "damageTypeMultipliers": {}
+  },
+  {
+    "id": "shielded",
+    "name": "Shielded Unit",
+    "baseHp": 80,
+    "baseSpeed": 60,
+    "armor": 3,
+    "breakthroughDamage": 20,
+    "currencyReward": 20,
+    "scoreReward": 30,
+    "movementType": "ground",
+    "spriteKey": "enemy-shielded",
+    "damageTypeMultipliers": {},
+    "shield": {
+      "maxShieldHp": 40,
+      "regenDelaySec": 3,
+      "regenRatePerSec": 10
+    }
+  },
+  {
+    "id": "support",
+    "name": "Support Unit",
+    "baseHp": 50,
+    "baseSpeed": 70,
+    "armor": 0,
+    "breakthroughDamage": 10,
+    "currencyReward": 25,
+    "scoreReward": 40,
+    "movementType": "ground",
+    "spriteKey": "enemy-support",
+    "damageTypeMultipliers": {},
+    "aura": {
+      "radiusPx": 128,
+      "speedMultiplier": 1.3
+    }
   }
 ]

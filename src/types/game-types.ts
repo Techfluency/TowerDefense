@@ -100,6 +100,47 @@ export interface EnemyDefinition {
    * Absent or empty = all types deal 1.0x damage. Phase 1 ships all at 1.0.
    */
   damageTypeMultipliers?: Record<string, number>;
+  /**
+   * Shield configuration for Shielded enemy archetype. Absent for
+   * enemies without shields. Shield HP absorbs damage before body HP.
+   * BOLT-017: Shielded Unit.
+   */
+  shield?: ShieldConfig;
+  /**
+   * Aura configuration for Support enemy archetype. Absent for enemies
+   * without auras. Aura applies a buff to nearby allies within radius.
+   * BOLT-017: Support Unit.
+   */
+  aura?: AuraConfig;
+}
+
+/**
+ * Shield configuration for the Shielded enemy archetype.
+ * Shield HP absorbs all incoming damage first; overflow goes to body HP.
+ * After taking no damage for `regenDelaySec` seconds, the shield
+ * regenerates at `regenRatePerSec` HP/s up to `maxShieldHp`.
+ * BOLT-017.
+ */
+export interface ShieldConfig {
+  /** Maximum shield hit points (e.g., 50% of baseHp = 40 for an 80HP enemy). */
+  maxShieldHp: number;
+  /** Seconds without damage before shield begins regenerating. */
+  regenDelaySec: number;
+  /** Shield HP regenerated per second once regen starts. */
+  regenRatePerSec: number;
+}
+
+/**
+ * Aura configuration for the Support enemy archetype.
+ * Applies a passive buff to all allies within the radius.
+ * When the Support Unit dies, affected enemies lose the buff immediately.
+ * BOLT-017.
+ */
+export interface AuraConfig {
+  /** Aura radius in pixels (2-tile radius = 128px at 64px tiles). */
+  radiusPx: number;
+  /** Speed multiplier applied to enemies within the aura (e.g., 1.3 = +30% speed). */
+  speedMultiplier: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -429,6 +470,10 @@ export const GAME_EVENTS = {
   ENEMY_SPAWNED: 'ENEMY_SPAWNED',
   /** Emitted by BOLT-011 AutoTileSystem when TileVariantMap is stored on registry. Listened by BOLT-012, BOLT-013. */
   AUTO_TILE_READY: 'AUTO_TILE_READY',
+  /** Emitted by BOLT-017 EnemySystem when a shielded enemy's shield is fully depleted. Listened by VFX hooks, potentially BOLT-021. */
+  ENEMY_SHIELD_BROKEN: 'ENEMY_SHIELD_BROKEN',
+  /** Emitted by BOLT-017 EnemySystem when a shielded enemy's shield finishes regenerating. Listened by VFX hooks. */
+  ENEMY_SHIELD_REGENERATED: 'ENEMY_SHIELD_REGENERATED',
 } as const;
 
 /**

@@ -51,6 +51,13 @@ import {
   UPGRADE_PARTICLE_SPEED,
   SCREEN_SHAKE_INTENSITY,
   SCREEN_SHAKE_DURATION_MS,
+  SHIELD_BREAK_BURST_BASE_COUNT,
+  SHIELD_BREAK_BURST_LIFESPAN_MS,
+  SHIELD_BREAK_BURST_SPEED,
+  SHIELD_BREAK_COLORS,
+  AURA_EXPIRE_BURST_BASE_COUNT,
+  AURA_EXPIRE_BURST_LIFESPAN_MS,
+  SUPPORT_AURA_COLOR,
 } from './vfx-config';
 import { DEPTH_VFX } from '../config/depth-layers';
 
@@ -492,6 +499,81 @@ export class VFXManager {
       ease: 'Quad.easeOut',
       onComplete: () => smoke.destroy(),
     });
+  }
+
+  // -------------------------------------------------------------------------
+  // Shield VFX (BOLT-017: break burst + regen fade)
+  // -------------------------------------------------------------------------
+
+  /**
+   * Plays a shield break particle burst -- cyan shards flying outward.
+   * Called when a Shielded enemy's shield HP drops to zero.
+   *
+   * @param x - World X position of the shield break.
+   * @param y - World Y position of the shield break.
+   */
+  playShieldBreakBurst(x: number, y: number): void {
+    const count = this.scaleCount(SHIELD_BREAK_BURST_BASE_COUNT);
+    if (count === 0) return;
+
+    for (let i = 0; i < count; i++) {
+      const color = SHIELD_BREAK_COLORS[i % SHIELD_BREAK_COLORS.length]!;
+      const size = 2 + Math.random() * 3;
+
+      const particle = this.scene.add.circle(x, y, size, color, 1);
+      particle.setDepth(DEPTH_VFX);
+
+      const angle = Math.random() * Math.PI * 2;
+      const speed = SHIELD_BREAK_BURST_SPEED[0] +
+        Math.random() * (SHIELD_BREAK_BURST_SPEED[1] - SHIELD_BREAK_BURST_SPEED[0]);
+      const vx = Math.cos(angle) * speed;
+      const vy = Math.sin(angle) * speed;
+      const lifespan = this.scaleLifespan(SHIELD_BREAK_BURST_LIFESPAN_MS);
+
+      this.scene.tweens.add({
+        targets: particle,
+        x: x + vx * (lifespan / 1000),
+        y: y + vy * (lifespan / 1000),
+        alpha: 0,
+        scaleX: 0.3,
+        scaleY: 0.3,
+        duration: lifespan,
+        ease: 'Quad.easeOut',
+        onComplete: () => particle.destroy(),
+      });
+    }
+  }
+
+  /**
+   * Plays the aura expire burst on enemies that lose a Support aura buff.
+   * Small green particles radiate briefly from each affected enemy.
+   *
+   * @param x - World X position of the affected enemy.
+   * @param y - World Y position of the affected enemy.
+   */
+  playAuraExpireBurst(x: number, y: number): void {
+    const count = this.scaleCount(AURA_EXPIRE_BURST_BASE_COUNT);
+    if (count === 0) return;
+
+    for (let i = 0; i < count; i++) {
+      const size = 1.5 + Math.random() * 2;
+      const particle = this.scene.add.circle(x, y, size, SUPPORT_AURA_COLOR, 0.8);
+      particle.setDepth(DEPTH_VFX);
+
+      const angle = Math.random() * Math.PI * 2;
+      const dist = 10 + Math.random() * 15;
+      const lifespan = this.scaleLifespan(AURA_EXPIRE_BURST_LIFESPAN_MS);
+
+      this.scene.tweens.add({
+        targets: particle,
+        x: x + Math.cos(angle) * dist,
+        y: y + Math.sin(angle) * dist,
+        alpha: 0,
+        duration: lifespan,
+        ease: 'Quad.easeOut',
+        onComplete: () => particle.destroy(),
+      });
+    }
   }
 
   // -------------------------------------------------------------------------

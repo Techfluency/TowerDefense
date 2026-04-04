@@ -22,7 +22,13 @@ import { BaseSystem } from './base-system';
 import { Enemy, EnemyState } from '../entities/enemy';
 import { GAME_EVENTS } from '../types/game-types';
 import type { GameState, GridPoint } from '../types/game-types';
-import type { EnemyDiedPayload, EnemyReachedObjectivePayload, EnemySpawnedPayload } from '../types/events';
+import type {
+  EnemyDiedPayload,
+  EnemyReachedObjectivePayload,
+  EnemySpawnedPayload,
+  EnemyShieldBrokenPayload,
+  EnemyShieldRegeneratedPayload,
+} from '../types/events';
 import type { PoolManager } from '../utils/pool-manager';
 import type { ConfigManager } from '../utils/config-manager';
 import type { MapData } from '../data/map-data';
@@ -33,7 +39,12 @@ import {
   DEPTH_HEALTH_BARS,
 } from '../config/depth-layers';
 import type { VFXManager } from '../vfx/vfx-manager';
-import { ENEMY_ROTATION_LERP_SPEED } from '../vfx/vfx-config';
+import {
+  ENEMY_ROTATION_LERP_SPEED,
+  SHIELD_BAR_COLOR,
+  SHIELD_BAR_HEIGHT,
+  SHIELD_BAR_Y_OFFSET,
+} from '../vfx/vfx-config';
 
 /** Health bar height in pixels. */
 const HEALTH_BAR_HEIGHT = 4;
@@ -121,13 +132,16 @@ export class EnemySystem extends BaseSystem {
 
   /**
    * Per-frame update: moves all active enemies, handles state transitions,
-   * and redraws health bars.
+   * processes shield regen timers, applies support aura buffs, and redraws
+   * health/shield bars.
    *
    * @param _time - Total elapsed time (unused).
    * @param delta - Milliseconds since last frame.
    */
   update(_time: number, delta: number): void {
     if (!this.mapReady) return;
+
+    const dt = delta / 1000;
 
     /* Process enemies in reverse so we can safely remove from the array. */
     for (let i = this.activeEnemies.length - 1; i >= 0; i--) {
@@ -136,6 +150,7 @@ export class EnemySystem extends BaseSystem {
       switch (enemy.state) {
         case EnemyState.MOVING:
           this.updateMovement(enemy, delta);
+          this.updateShieldRegen(enemy, dt);
           break;
 
         case EnemyState.DYING:
@@ -150,6 +165,9 @@ export class EnemySystem extends BaseSystem {
           break;
       }
     }
+
+    /* BOLT-017: Apply support aura speed buffs each frame. */
+    this.updateSupportAuras();
 
     /* Redraw all health bars in one batch. */
     this.drawHealthBars();
@@ -298,7 +316,7 @@ export class EnemySystem extends BaseSystem {
   /**
    * Applies damage to an enemy by instance ID. Called when the system
    * receives damage events, or directly by BOLT-006.
-   * Triggers hit flash VFX and handles death if HP reaches zero.
+   * Triggers hit flash VFX, handles shield break events, and handles death.
    *
    * @param instanceId - Target enemy's instance ID.
    * @param rawDamage - Raw damage before reductions.
@@ -312,6 +330,21 @@ export class EnemySystem extends BaseSystem {
 
     /* Trigger hit flash VFX. */
     this.triggerHitFlash(enemy);
+
+    /* BOLT-017: Emit shield broken event and play VFX when shield depletes. */
+    if (result.shieldBroken) {
+      const pos = enemy.getPosition();
+      const payload: EnemyShieldBrokenPayload = {
+        enemyId: enemy.instanceId,
+        enemyType: enemy.definition.id,
+        position: pos,
+      };
+      this.emit(GAME_EVENTS.ENEMY_SHIELD_BROKEN, payload);
+
+      if (this.vfxManager) {
+        this.vfxManager.playShieldBreakBurst(pos.x, pos.y);
+      }
+    }
 
     if (result.died) {
       this.handleDeath(enemy);
@@ -426,6 +459,18 @@ export class EnemySystem extends BaseSystem {
     };
     this.emit(GAME_EVENTS.ENEMY_DIED, payload);
 
+    /* BOLT-017: When a Support Unit dies, play aura-expire burst on every
+     * enemy that was currently being buffed by this support's aura. */
+    if (enemy.hasAura() && this.vfxManager) {
+      for (const other of this.activeEnemies) {
+        if (other.state !== EnemyState.MOVING) continue;
+        if (other.activeAuraSources.has(enemy.instanceId)) {
+          const otherPos = other.getPosition();
+          this.vfxManager.playAuraExpireBurst(otherPos.x, otherPos.y);
+        }
+      }
+    }
+
     /* BOLT-014: Play per-archetype particle burst via VFXManager. */
     if (this.vfxManager) {
       this.vfxManager.playDeathBurst(pos.x, pos.y, enemy.definition.id);
@@ -482,9 +527,11 @@ export class EnemySystem extends BaseSystem {
   // ---------------------------------------------------------------------------
 
   /**
-   * Redraws all health bars using the shared Graphics object.
-   * Called every frame in update(). One clear + N fillRect is cheaper
-   * than 100 individual Graphics objects.
+   * Redraws all health bars (and shield bars for BOLT-017) using the shared
+   * Graphics object. Called every frame in update(). One clear + N fillRect
+   * is cheaper than 100 individual Graphics objects.
+   *
+   * BOLT-017: Shielded enemies get a cyan shield bar above the health bar.
    */
   private drawHealthBars(): void {
     if (!this.healthBarGraphics) return;
@@ -492,14 +539,30 @@ export class EnemySystem extends BaseSystem {
     this.healthBarGraphics.clear();
 
     for (const enemy of this.activeEnemies) {
-      /* Only draw health bars for moving enemies (not dying/dead). */
+      /* Only draw bars for moving enemies (not dying/dead). */
       if (enemy.state !== EnemyState.MOVING) continue;
 
       const sprite = enemy.sprite;
       const hpRatio = enemy.getHpRatio();
       const barWidth = sprite.displayWidth;
       const barX = sprite.x - barWidth / 2;
-      const barY = sprite.y - (sprite.displayHeight / 2 + HEALTH_BAR_Y_OFFSET);
+      let barY = sprite.y - (sprite.displayHeight / 2 + HEALTH_BAR_Y_OFFSET);
+
+      /* BOLT-017: Shield bar above health bar for shielded enemies. */
+      if (enemy.hasShield() && enemy.getMaxShieldHp() > 0) {
+        const shieldBarY = barY - SHIELD_BAR_Y_OFFSET;
+        const shieldRatio = enemy.getShieldRatio();
+
+        /* Shield background. */
+        this.healthBarGraphics.fillStyle(HEALTH_BAR_COLORS.background, 0.6);
+        this.healthBarGraphics.fillRect(barX, shieldBarY, barWidth, SHIELD_BAR_HEIGHT);
+
+        /* Shield fill bar -- only draw if there is shield HP. */
+        if (shieldRatio > 0) {
+          this.healthBarGraphics.fillStyle(SHIELD_BAR_COLOR, 1);
+          this.healthBarGraphics.fillRect(barX, shieldBarY, barWidth * shieldRatio, SHIELD_BAR_HEIGHT);
+        }
+      }
 
       /* Background bar (full width). */
       this.healthBarGraphics.fillStyle(HEALTH_BAR_COLORS.background, 1);
@@ -514,6 +577,103 @@ export class EnemySystem extends BaseSystem {
 
       this.healthBarGraphics.fillStyle(fillColor, 1);
       this.healthBarGraphics.fillRect(barX, barY, barWidth * hpRatio, HEALTH_BAR_HEIGHT);
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Private -- Shield Regeneration (BOLT-017)
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Ticks shield regeneration for a single enemy. Called per-frame for
+   * each MOVING enemy. Increments the damage timer and, once the regen
+   * delay expires, restores shield HP at the configured rate.
+   *
+   * When the shield goes from 0 to >0, emits ENEMY_SHIELD_REGENERATED.
+   */
+  private updateShieldRegen(enemy: Enemy, dt: number): void {
+    if (!enemy.hasShield()) return;
+    if (enemy.isShieldActive()) return; // Shield already full or partially up -- no regen needed
+    if (enemy.getShieldHp() >= enemy.getMaxShieldHp()) return;
+
+    /* Accumulate time since last damage. */
+    enemy.timeSinceLastDamage += dt;
+
+    /* Only regen after the configured delay. */
+    if (enemy.timeSinceLastDamage < enemy.getShieldRegenDelay()) return;
+
+    const regenAmount = enemy.getShieldRegenRate() * dt;
+    const justReactivated = enemy.regenShield(regenAmount);
+
+    if (justReactivated) {
+      const pos = enemy.getPosition();
+      const payload: EnemyShieldRegeneratedPayload = {
+        enemyId: enemy.instanceId,
+        enemyType: enemy.definition.id,
+        position: pos,
+      };
+      this.emit(GAME_EVENTS.ENEMY_SHIELD_REGENERATED, payload);
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Private -- Support Aura Processing (BOLT-017)
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Each frame, finds all Support enemies and applies their speed aura to
+   * nearby allies. Non-support enemies have their speed reset to base before
+   * aura buffs are reapplied, so removing a Support enemy instantly removes
+   * its effect.
+   *
+   * Aura stacking: multiple Support enemies do NOT stack -- an enemy buffed
+   * by one or more supports gets a single 1.3x multiplier. This prevents
+   * exponential speed creep from clustered Support units.
+   */
+  private updateSupportAuras(): void {
+    const movingEnemies = this.activeEnemies.filter(e => e.state === EnemyState.MOVING);
+
+    /* Phase 1: Reset all enemies to base speed and clear aura sources.
+     * This ensures enemies immediately lose the buff when supports die. */
+    for (const enemy of movingEnemies) {
+      enemy.currentSpeed = enemy.baseSpeed;
+      enemy.activeAuraSources.clear();
+    }
+
+    /* Phase 2: Find all support enemies and apply their aura. */
+    const supporters = movingEnemies.filter(e => e.hasAura());
+
+    for (const support of supporters) {
+      const auraRadius = support.getAuraRadius();
+      const supportPos = support.getPosition();
+
+      for (const target of movingEnemies) {
+        /* Support does not buff itself. */
+        if (target === support) continue;
+
+        const targetPos = target.getPosition();
+        const dx = targetPos.x - supportPos.x;
+        const dy = targetPos.y - supportPos.y;
+        const distSq = dx * dx + dy * dy;
+
+        if (distSq <= auraRadius * auraRadius) {
+          target.activeAuraSources.add(support.instanceId);
+        }
+      }
+    }
+
+    /* Phase 3: Apply the speed buff to enemies that have at least one aura source.
+     * Single multiplier regardless of how many supports are buffing. */
+    for (const enemy of movingEnemies) {
+      if (enemy.activeAuraSources.size > 0) {
+        /* All support units use the same multiplier (from config), so
+         * we use the first supporter's multiplier. In practice all
+         * supports have identical aura config from enemies.json. */
+        const firstSupportId = enemy.activeAuraSources.values().next().value!;
+        const supporter = movingEnemies.find(e => e.instanceId === firstSupportId);
+        const mult = supporter?.getAuraSpeedMultiplier() ?? 1.0;
+        enemy.currentSpeed = enemy.baseSpeed * mult;
+      }
     }
   }
 

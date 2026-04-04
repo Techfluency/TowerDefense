@@ -48,9 +48,9 @@ describe('GAME_EVENTS', () => {
     expect(GAME_EVENTS.ENEMY_SPAWNED).toBe('ENEMY_SPAWNED');
   });
 
-  it('should have exactly 22 events defined', () => {
-    /* 12 original + 6 BOLT-001 + 1 BOLT-002 + 1 BOLT-003 (ENEMY_SPAWNED) + 1 BOLT-007 (TOWER_REPAIRED) + 1 BOLT-011 (AUTO_TILE_READY). */
-    expect(Object.keys(GAME_EVENTS).length).toBe(22);
+  it('should have exactly 24 events defined', () => {
+    /* 12 original + 6 BOLT-001 + 1 BOLT-002 + 1 BOLT-003 (ENEMY_SPAWNED) + 1 BOLT-007 (TOWER_REPAIRED) + 1 BOLT-011 (AUTO_TILE_READY) + 2 BOLT-017 (ENEMY_SHIELD_BROKEN, ENEMY_SHIELD_REGENERATED). */
+    expect(Object.keys(GAME_EVENTS).length).toBe(24);
   });
 
   it('should use SUBJECT_ACTION naming pattern', () => {

@@ -79,6 +79,34 @@ export interface EnemyDamagedPayload {
   sourceType: string;
 }
 
+/**
+ * Payload for ENEMY_SHIELD_BROKEN event.
+ * Emitted by BOLT-017 (Enemy System) when a shielded enemy's shield HP reaches zero.
+ * Listened by VFX hooks (shield break burst), potentially BOLT-021 (scoring milestones).
+ */
+export interface EnemyShieldBrokenPayload {
+  /** Instance ID of the enemy whose shield broke. */
+  enemyId: string;
+  /** References EnemyDefinition.id (always "shielded" for now). */
+  enemyType: string;
+  /** World-space pixel coordinates where the shield broke. */
+  position: { x: number; y: number };
+}
+
+/**
+ * Payload for ENEMY_SHIELD_REGENERATED event.
+ * Emitted by BOLT-017 (Enemy System) when a shielded enemy's shield finishes regenerating.
+ * Listened by VFX hooks (shield reappear effect).
+ */
+export interface EnemyShieldRegeneratedPayload {
+  /** Instance ID of the enemy whose shield regenerated. */
+  enemyId: string;
+  /** References EnemyDefinition.id. */
+  enemyType: string;
+  /** World-space pixel coordinates where the shield regenerated. */
+  position: { x: number; y: number };
+}
+
 // ---------------------------------------------------------------------------
 // Wave Events
 // ---------------------------------------------------------------------------
