@@ -16,6 +16,12 @@ export const DEPTH_ENEMY_GROUND = 10;
 /** Towers -- between ground enemies and flying enemies. */
 export const DEPTH_TOWERS = 15;
 
+/** Range preview circle -- above towers but below placement ghost. */
+export const DEPTH_RANGE_PREVIEW = 16;
+
+/** Placement ghost -- above towers and range circle, below flying enemies. */
+export const DEPTH_PLACEMENT_GHOST = 17;
+
 /** Flying enemies -- above ground enemies and towers. */
 export const DEPTH_ENEMY_FLYING = 20;
 

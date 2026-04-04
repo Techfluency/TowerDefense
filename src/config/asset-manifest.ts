@@ -62,9 +62,11 @@ export interface AssetManifest {
  */
 export const ASSET_MANIFEST: AssetManifest = {
   sprites: [
-    /* Tower placeholder sprites (blue variants). */
+    /* Tower placeholder sprites (blue variants + new tower types). */
     { key: 'tower-ranged', path: 'sprites/tower-ranged.png' },
     { key: 'tower-focused', path: 'sprites/tower-focused.png' },
+    { key: 'tower-broadcast', path: 'sprites/tower-broadcast.png' },
+    { key: 'tower-antiair', path: 'sprites/tower-antiair.png' },
 
     /* Enemy placeholder sprites -- distinct colors and sizes per archetype. */
     { key: 'enemy-runner', path: 'sprites/enemy-runner.png' },

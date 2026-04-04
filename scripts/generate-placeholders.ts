@@ -99,6 +99,8 @@ function createChunk(type: string, data: Buffer): Buffer {
 const sprites: Array<[string, number, number, number, number, number]> = [
   ['tower-ranged',      32, 32, 0x4a, 0x90, 0xd9], // Blue
   ['tower-focused',     32, 32, 0x3a, 0x70, 0xc9], // Darker blue
+  ['tower-broadcast',   32, 32, 0x4a, 0xd9, 0xb0], // Teal
+  ['tower-antiair',     32, 32, 0x4a, 0x8b, 0xd9], // Light blue
   ['enemy-runner',      24, 24, 0xd9, 0x4a, 0x4a], // Red (#D94A4A)
   ['enemy-tank',        32, 32, 0x8b, 0x20, 0x20], // Dark Red (#8B2020)
   ['enemy-fast',        20, 20, 0xff, 0x6b, 0x35], // Orange (#FF6B35)

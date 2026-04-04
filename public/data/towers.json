@@ -24,5 +24,31 @@
     "targetingMode": "strongest",
     "description": "High damage, slow fire rate. Best against armored targets.",
     "spriteKey": "tower-focused"
+  },
+  {
+    "id": "broadcast",
+    "name": "Shockwave Tower",
+    "towerClass": "broadcast",
+    "cost": 75,
+    "range": 128,
+    "fireRate": 0.8,
+    "damage": 15,
+    "maxHp": 0,
+    "targetingMode": "closest",
+    "description": "Damages all enemies in range. Short range, moderate damage.",
+    "spriteKey": "tower-broadcast"
+  },
+  {
+    "id": "antiair",
+    "name": "AA Missile Tower",
+    "towerClass": "antiair",
+    "cost": 60,
+    "range": 250,
+    "fireRate": 1.0,
+    "damage": 25,
+    "maxHp": 0,
+    "targetingMode": "first",
+    "description": "Targets flying enemies. Cannot hit ground units.",
+    "spriteKey": "tower-antiair"
   }
 ]
