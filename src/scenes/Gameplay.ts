@@ -37,6 +37,7 @@ import { GameStateManager } from '../systems/game-state-manager';
 import { HudSystem } from '../systems/hud-system';
 import type { BaseSystem } from '../systems/base-system';
 import { VFXManager } from '../vfx/vfx-manager';
+import { AudioSystem } from '../systems/audio-system';
 
 export class Gameplay extends Phaser.Scene {
   /**
@@ -181,6 +182,12 @@ export class Gameplay extends Phaser.Scene {
      * overlays, tooltips, enemy badges, coach marks. */
     const hudSystem = new HudSystem(this, this.gameState);
 
+    /* Priority 9: Audio system -- event-driven SFX and background music.
+     * Runs after all gameplay systems so it can react to events from the
+     * current frame. Stored on registry for settings panel access. BOLT-015. */
+    const audioSystem = new AudioSystem(this, this.gameState, this.configManager);
+    this.registry.set('audioManager', audioSystem.getAudioManager());
+
     this.systems = [
       mapGenerator,          /* Priority 0 (map) */
       autoTileSystem,        /* Priority 0 (auto-tile) -- BOLT-011 */
@@ -196,6 +203,7 @@ export class Gameplay extends Phaser.Scene {
       upgradeSystem,         /* Priority 6 (upgrades) -- BOLT-007 */
       gameStateManager,      /* Priority 7 (game state) -- BOLT-009 */
       hudSystem,             /* Priority 8 (HUD) -- BOLT-009 */
+      audioSystem,           /* Priority 9 (audio) -- BOLT-015 */
     ];
 
     /* Call init() on each system after all are constructed.
@@ -266,6 +274,9 @@ export class Gameplay extends Phaser.Scene {
     const vfx = this.registry.get('vfxManager') as VFXManager | undefined;
     if (vfx) vfx.destroy();
     this.registry.remove('vfxManager');
+
+    /* Remove audioManager registry reference (BOLT-015). */
+    this.registry.remove('audioManager');
 
     /* Note: 'gameStateManager', 'hudSystem', 'speedMultiplier' are removed
      * by GameStateManager.destroy() and HudSystem.destroy() above. */
