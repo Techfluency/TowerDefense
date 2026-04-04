@@ -426,3 +426,49 @@ export interface AutoTileReadyPayload {
   /** The map seed used for variant selection (pass-through from MapData.seed). */
   seed: string;
 }
+
+// ---------------------------------------------------------------------------
+// Boss Events (BOLT-018)
+// ---------------------------------------------------------------------------
+
+/**
+ * Payload for BOSS_MINION_SUMMON event.
+ * Emitted by BOLT-018 (BossSystem) when a boss spawns minions at an HP threshold.
+ * Listened by HUD (VFX feedback), audio system (summon cue).
+ */
+export interface BossMinionSummonPayload {
+  /** Instance ID of the boss that summoned minions. */
+  bossId: string;
+  /** World-space position where minions spawn. */
+  position: { x: number; y: number };
+  /** Number of minions summoned. */
+  minionCount: number;
+  /** HP threshold that triggered the summon (e.g., 0.75 or 0.50). */
+  hpThreshold: number;
+}
+
+/**
+ * Payload for BOSS_SPEED_SURGE event.
+ * Emitted by BOLT-018 (BossSystem) when a boss activates speed surge at 25% HP.
+ * Listened by HUD (VFX feedback), audio system (surge cue).
+ */
+export interface BossSpeedSurgePayload {
+  /** Instance ID of the boss that surged. */
+  bossId: string;
+  /** World-space position at surge activation. */
+  position: { x: number; y: number };
+  /** The new speed multiplier (e.g., 2.0). */
+  speedMultiplier: number;
+}
+
+/**
+ * Payload for BOSS_DIED event.
+ * Emitted by BOLT-018 (BossSystem) when a boss enemy dies.
+ * Listened by HUD (boss HP bar removal, screen shake).
+ */
+export interface BossDiedPayload {
+  /** Instance ID of the boss that died. */
+  bossId: string;
+  /** World-space position where the boss died. */
+  position: { x: number; y: number };
+}

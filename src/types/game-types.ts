@@ -511,6 +511,12 @@ export const GAME_EVENTS = {
   ENEMY_SHIELD_REGENERATED: 'ENEMY_SHIELD_REGENERATED',
   /** Emitted by BOLT-019 UpgradeSystem when a Tier 4 branch is selected. Listened by BOLT-009 (HUD notification). */
   TOWER_BRANCH_SELECTED: 'TOWER_BRANCH_SELECTED',
+  /** Emitted by BOLT-018 BossSystem when a boss spawns minions. Listened by HUD (VFX feedback). */
+  BOSS_MINION_SUMMON: 'BOSS_MINION_SUMMON',
+  /** Emitted by BOLT-018 BossSystem when a boss activates speed surge. Listened by HUD (VFX feedback). */
+  BOSS_SPEED_SURGE: 'BOSS_SPEED_SURGE',
+  /** Emitted by BOLT-018 BossSystem when a boss enemy dies. Listened by HUD (boss HP bar removal, reward VFX). */
+  BOSS_DIED: 'BOSS_DIED',
 } as const;
 
 /**

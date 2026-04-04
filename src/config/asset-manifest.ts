@@ -79,6 +79,9 @@ export const ASSET_MANIFEST: AssetManifest = {
     { key: 'enemy-shielded', path: 'sprites/enemy-shielded.png' },
     { key: 'enemy-support', path: 'sprites/enemy-support.png' },
 
+    /* BOLT-018: Boss enemy sprite (1.5x scale). */
+    { key: 'enemy-boss', path: 'sprites/enemy-boss.png' },
+
     /* Projectile placeholder sprites (yellow variants). */
     { key: 'projectile-arrow', path: 'sprites/projectile-arrow.png' },
     { key: 'projectile-blast', path: 'sprites/projectile-blast.png' },

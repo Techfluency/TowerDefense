@@ -36,8 +36,9 @@
   {
     "waveNumber": 5,
     "groups": [
-      { "enemyId": "tank", "count": 5, "spawnIntervalMs": 1500, "delayMs": 0 },
-      { "enemyId": "runner", "count": 10, "spawnIntervalMs": 700, "delayMs": 2000 }
+      { "enemyId": "boss", "count": 1, "spawnIntervalMs": 1000, "delayMs": 0 },
+      { "enemyId": "tank", "count": 5, "spawnIntervalMs": 1500, "delayMs": 2000 },
+      { "enemyId": "runner", "count": 10, "spawnIntervalMs": 700, "delayMs": 4000 }
     ],
     "prepTimeMs": 25000,
     "isBossWave": true
@@ -83,10 +84,11 @@
   {
     "waveNumber": 10,
     "groups": [
-      { "enemyId": "tank", "count": 6, "spawnIntervalMs": 1400, "delayMs": 0 },
-      { "enemyId": "runner", "count": 12, "spawnIntervalMs": 600, "delayMs": 2000 },
-      { "enemyId": "fast", "count": 6, "spawnIntervalMs": 500, "delayMs": 4000 },
-      { "enemyId": "swarm", "count": 8, "spawnIntervalMs": 350, "delayMs": 5000 }
+      { "enemyId": "boss", "count": 1, "spawnIntervalMs": 1000, "delayMs": 0 },
+      { "enemyId": "tank", "count": 6, "spawnIntervalMs": 1400, "delayMs": 2000 },
+      { "enemyId": "runner", "count": 12, "spawnIntervalMs": 600, "delayMs": 3000 },
+      { "enemyId": "fast", "count": 6, "spawnIntervalMs": 500, "delayMs": 5000 },
+      { "enemyId": "swarm", "count": 8, "spawnIntervalMs": 350, "delayMs": 6000 }
     ],
     "prepTimeMs": 25000,
     "isBossWave": true
@@ -134,10 +136,11 @@
   {
     "waveNumber": 15,
     "groups": [
-      { "enemyId": "shielded", "count": 4, "spawnIntervalMs": 1500, "delayMs": 0 },
-      { "enemyId": "support", "count": 2, "spawnIntervalMs": 2500, "delayMs": 1500 },
-      { "enemyId": "fast", "count": 10, "spawnIntervalMs": 450, "delayMs": 2500 },
-      { "enemyId": "runner", "count": 12, "spawnIntervalMs": 550, "delayMs": 4000 }
+      { "enemyId": "boss", "count": 1, "spawnIntervalMs": 1000, "delayMs": 0 },
+      { "enemyId": "shielded", "count": 4, "spawnIntervalMs": 1500, "delayMs": 2000 },
+      { "enemyId": "support", "count": 2, "spawnIntervalMs": 2500, "delayMs": 3500 },
+      { "enemyId": "fast", "count": 10, "spawnIntervalMs": 450, "delayMs": 4500 },
+      { "enemyId": "runner", "count": 12, "spawnIntervalMs": 550, "delayMs": 6000 }
     ],
     "prepTimeMs": 25000,
     "isBossWave": true
@@ -191,13 +194,14 @@
   {
     "waveNumber": 20,
     "groups": [
-      { "enemyId": "shielded", "count": 6, "spawnIntervalMs": 1000, "delayMs": 0 },
-      { "enemyId": "support", "count": 3, "spawnIntervalMs": 1800, "delayMs": 1000 },
-      { "enemyId": "tank", "count": 8, "spawnIntervalMs": 1000, "delayMs": 1500 },
-      { "enemyId": "runner", "count": 15, "spawnIntervalMs": 450, "delayMs": 2500 },
-      { "enemyId": "fast", "count": 12, "spawnIntervalMs": 350, "delayMs": 3500 },
-      { "enemyId": "swarm", "count": 20, "spawnIntervalMs": 220, "delayMs": 5000 },
-      { "enemyId": "flyer", "count": 10, "spawnIntervalMs": 600, "delayMs": 6000 }
+      { "enemyId": "boss", "count": 1, "spawnIntervalMs": 1000, "delayMs": 0 },
+      { "enemyId": "shielded", "count": 6, "spawnIntervalMs": 1000, "delayMs": 2000 },
+      { "enemyId": "support", "count": 3, "spawnIntervalMs": 1800, "delayMs": 3000 },
+      { "enemyId": "tank", "count": 8, "spawnIntervalMs": 1000, "delayMs": 3500 },
+      { "enemyId": "runner", "count": 15, "spawnIntervalMs": 450, "delayMs": 4500 },
+      { "enemyId": "fast", "count": 12, "spawnIntervalMs": 350, "delayMs": 5500 },
+      { "enemyId": "swarm", "count": 20, "spawnIntervalMs": 220, "delayMs": 7000 },
+      { "enemyId": "flyer", "count": 10, "spawnIntervalMs": 600, "delayMs": 8000 }
     ],
     "prepTimeMs": 30000,
     "isBossWave": true

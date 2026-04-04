@@ -96,6 +96,7 @@ export const DEATH_BURST_COLORS: Record<string, number[]> = {
   swarm:    [0xD94A8B, 0xFF77AA, 0xFFAACC],
   shielded: [0x44CCFF, 0x88DDFF, 0xAAEEFF], // BOLT-017: cyan shield particles
   support:  [0x44FF44, 0x88FF88, 0xCCFFCC], // BOLT-017: green aura particles
+  boss:     [0xFF2222, 0xFF6600, 0xFFAA00], // BOLT-018: fiery red/orange boss particles
 };
 
 /** Default death burst color when archetype is not in the lookup. */
@@ -275,3 +276,76 @@ export const DEATH_BURST_COLORS_SUPPORT = [0x44FF44, 0x88FF88, 0xCCFFCC];
 
 /** Rotation easing speed in radians per second for enemy movement. */
 export const ENEMY_ROTATION_LERP_SPEED = 10;
+
+// ---------------------------------------------------------------------------
+// Boss VFX constants (BOLT-018)
+// ---------------------------------------------------------------------------
+
+/** Boss spawn burst particle count (base, scaled by quality). */
+export const BOSS_SPAWN_BURST_BASE_COUNT = 14;
+
+/** Boss spawn burst particle lifespan in ms. */
+export const BOSS_SPAWN_BURST_LIFESPAN_MS = 500;
+
+/** Boss spawn burst particle speed range. */
+export const BOSS_SPAWN_BURST_SPEED: [number, number] = [40, 100];
+
+/** Boss spawn burst colors (dark red/orange menacing). */
+export const BOSS_SPAWN_BURST_COLORS = [0xFF2222, 0xFF4444, 0xFF6600];
+
+/** Boss death burst particle count (larger than normal enemies). */
+export const BOSS_DEATH_BURST_BASE_COUNT = 20;
+
+/** Boss death screen shake intensity (stronger than normal). */
+export const BOSS_DEATH_SHAKE_INTENSITY = 6;
+
+/** Boss death screen shake duration in ms. */
+export const BOSS_DEATH_SHAKE_DURATION_MS = 200;
+
+/** Boss speed surge trail particle color (red). */
+export const BOSS_SPEED_SURGE_COLOR = 0xFF2222;
+
+/** Boss speed surge tint applied to sprite. */
+export const BOSS_SPEED_SURGE_TINT = 0xFF4444;
+
+/** Boss HP bar width in pixels. */
+export const BOSS_HP_BAR_WIDTH = 400;
+
+/** Boss HP bar height in pixels. */
+export const BOSS_HP_BAR_HEIGHT = 16;
+
+/** Boss HP bar Y position from top of screen. */
+export const BOSS_HP_BAR_Y = 50;
+
+/** Boss HP bar background color. */
+export const BOSS_HP_BAR_BG_COLOR = 0x222222;
+
+/** Boss HP bar fill color. */
+export const BOSS_HP_BAR_FILL_COLOR = 0xFF2222;
+
+/** Boss HP bar border color. */
+export const BOSS_HP_BAR_BORDER_COLOR = 0xFF4444;
+
+/** Boss intro camera shake intensity. */
+export const BOSS_INTRO_SHAKE_INTENSITY = 4;
+
+/** Boss intro camera shake duration in ms. */
+export const BOSS_INTRO_SHAKE_DURATION_MS = 300;
+
+/** Boss intro text display duration in ms. */
+export const BOSS_INTRO_TEXT_DURATION_MS = 2000;
+
+/** Minion summon count per threshold. */
+export const BOSS_MINION_SUMMON_COUNT = 3;
+
+/** Speed surge multiplier (2x base speed). */
+export const BOSS_SPEED_SURGE_MULTIPLIER = 2.0;
+
+/** HP threshold for first minion summon (75%). */
+export const BOSS_SUMMON_THRESHOLD_1 = 0.75;
+
+/** HP threshold for second minion summon (50%). */
+export const BOSS_SUMMON_THRESHOLD_2 = 0.50;
+
+/** HP threshold for speed surge (25%). */
+export const BOSS_SPEED_SURGE_THRESHOLD = 0.25;

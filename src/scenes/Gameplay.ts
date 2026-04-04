@@ -38,6 +38,7 @@ import { HudSystem } from '../systems/hud-system';
 import type { BaseSystem } from '../systems/base-system';
 import { VFXManager } from '../vfx/vfx-manager';
 import { AudioSystem } from '../systems/audio-system';
+import { BossSystem } from '../systems/boss-system';
 
 export class Gameplay extends Phaser.Scene {
   /**
@@ -132,6 +133,12 @@ export class Gameplay extends Phaser.Scene {
     /* Store enemySystem on registry before combat systems init (they resolve it). */
     this.registry.set('enemySystem', enemySystem);
 
+    /* Priority 2.5: Boss system -- boss mechanics, HP bar, wave intro.
+     * Runs after EnemySystem (needs active enemies) but before TowerCombat
+     * so minions spawned by boss summon are targetable in the same frame.
+     * BOLT-018. */
+    const bossSystem = new BossSystem(this, this.gameState);
+
     /* Priority 3: Tower combat system -- targeting, cooldowns, fire initiation.
      * Reads tower positions from TowerRegistry, enemy positions from EnemySystem.
      * Fires after enemies move so targeting uses current-frame positions. */
@@ -197,6 +204,7 @@ export class Gameplay extends Phaser.Scene {
       towerPlacementSystem,  /* Priority 0 (tower placement UI) -- BOLT-005 */
       waveSystem,            /* Priority 1 (wave) -- BOLT-004 */
       enemySystem,           /* Priority 2 (enemy) -- BOLT-003 */
+      bossSystem,            /* Priority 2.5 (boss) -- BOLT-018 */
       towerCombatSystem,     /* Priority 3 (tower combat) -- BOLT-006 */
       projectileSystem,      /* Priority 4 (projectile) -- BOLT-006 */
       economySystem,         /* Priority 5 (economy) -- BOLT-008 */
@@ -277,6 +285,9 @@ export class Gameplay extends Phaser.Scene {
 
     /* Remove audioManager registry reference (BOLT-015). */
     this.registry.remove('audioManager');
+
+    /* Remove bossSystem registry reference (BOLT-018). */
+    this.registry.remove('bossSystem');
 
     /* Note: 'gameStateManager', 'hudSystem', 'speedMultiplier' are removed
      * by GameStateManager.destroy() and HudSystem.destroy() above. */

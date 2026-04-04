@@ -58,6 +58,13 @@ import {
   AURA_EXPIRE_BURST_BASE_COUNT,
   AURA_EXPIRE_BURST_LIFESPAN_MS,
   SUPPORT_AURA_COLOR,
+  BOSS_SPAWN_BURST_BASE_COUNT,
+  BOSS_SPAWN_BURST_LIFESPAN_MS,
+  BOSS_SPAWN_BURST_SPEED,
+  BOSS_SPAWN_BURST_COLORS,
+  BOSS_DEATH_SHAKE_INTENSITY,
+  BOSS_DEATH_SHAKE_DURATION_MS,
+  BOSS_SPEED_SURGE_COLOR,
 } from './vfx-config';
 import { DEPTH_VFX } from '../config/depth-layers';
 
@@ -617,6 +624,87 @@ export class VFXManager {
       targetAngle,
       lerpSpeed * dt,
     );
+  }
+
+  // -------------------------------------------------------------------------
+  // Boss VFX (BOLT-018: spawn burst, death shake, speed trail)
+  // -------------------------------------------------------------------------
+
+  /**
+   * Plays a menacing spawn burst when a boss enemy appears.
+   * Red/orange particles radiate outward from the spawn position.
+   *
+   * @param x - World X position of the boss spawn.
+   * @param y - World Y position of the boss spawn.
+   */
+  playBossSpawnBurst(x: number, y: number): void {
+    const count = this.scaleCount(BOSS_SPAWN_BURST_BASE_COUNT);
+    if (count === 0) return;
+
+    for (let i = 0; i < count; i++) {
+      const color = BOSS_SPAWN_BURST_COLORS[i % BOSS_SPAWN_BURST_COLORS.length]!;
+      const size = 3 + Math.random() * 4;
+
+      const particle = this.scene.add.circle(x, y, size, color, 1);
+      particle.setDepth(DEPTH_VFX);
+
+      const angle = Math.random() * Math.PI * 2;
+      const speed = BOSS_SPAWN_BURST_SPEED[0] +
+        Math.random() * (BOSS_SPAWN_BURST_SPEED[1] - BOSS_SPAWN_BURST_SPEED[0]);
+      const vx = Math.cos(angle) * speed;
+      const vy = Math.sin(angle) * speed;
+      const lifespan = this.scaleLifespan(BOSS_SPAWN_BURST_LIFESPAN_MS);
+
+      this.scene.tweens.add({
+        targets: particle,
+        x: x + vx * (lifespan / 1000),
+        y: y + vy * (lifespan / 1000),
+        alpha: 0,
+        scaleX: 0.3,
+        scaleY: 0.3,
+        duration: lifespan,
+        ease: 'Quad.easeOut',
+        onComplete: () => particle.destroy(),
+      });
+    }
+  }
+
+  /**
+   * Plays a heavy screen shake for boss death. Stronger than normal shake.
+   * Only runs on 'high' and 'medium' quality.
+   */
+  playBossDeathShake(): void {
+    if (!this.quality.enableScreenShake) return;
+
+    this.scene.cameras.main.shake(
+      BOSS_DEATH_SHAKE_DURATION_MS,
+      BOSS_DEATH_SHAKE_INTENSITY / 1000,
+    );
+  }
+
+  /**
+   * Plays a speed trail particle behind a surging boss.
+   * Red afterimage dots that fade quickly.
+   *
+   * @param x - Current boss world X.
+   * @param y - Current boss world Y.
+   */
+  playBossSpeedTrail(x: number, y: number): void {
+    if (!this.quality.enableTrails) return;
+
+    const dot = this.scene.add.circle(x, y, 3, BOSS_SPEED_SURGE_COLOR, 0.6);
+    dot.setDepth(DEPTH_VFX);
+
+    const lifespan = this.scaleLifespan(300);
+    this.scene.tweens.add({
+      targets: dot,
+      alpha: 0,
+      scaleX: 1.5,
+      scaleY: 1.5,
+      duration: lifespan,
+      ease: 'Quad.easeOut',
+      onComplete: () => dot.destroy(),
+    });
   }
 
   // -------------------------------------------------------------------------

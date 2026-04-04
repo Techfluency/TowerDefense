@@ -98,5 +98,18 @@
       "radiusPx": 128,
       "speedMultiplier": 1.3
     }
+  },
+  {
+    "id": "boss",
+    "name": "BOSS",
+    "baseHp": 2000,
+    "baseSpeed": 35,
+    "armor": 15,
+    "breakthroughDamage": 100,
+    "currencyReward": 200,
+    "scoreReward": 500,
+    "movementType": "ground",
+    "spriteKey": "enemy-boss",
+    "damageTypeMultipliers": {}
   }
 ]
