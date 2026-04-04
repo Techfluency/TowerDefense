@@ -40,16 +40,33 @@ export class GameOver extends Phaser.Scene {
    * Builds the full results screen with victory/defeat differentiation,
    * stats display, session-best badge, and navigation buttons.
    *
-   * @param data - Run results passed from GameStateManager.
+   * Data source priority:
+   * 1. Scene data passed via scene.start(key, data) -- primary
+   * 2. Registry 'gameOverData' -- fallback for when scene data is lost
+   *    during the delayedCall + scene transition lifecycle
+   *
+   * @param data - Run results passed from GameStateManager (may be empty).
    */
   create(data: GameOverData): void {
+    /* Resolve data: prefer scene.start data, fall back to registry.
+     * Phaser's scene.start data parameter can be lost when the originating
+     * scene shuts down during a delayedCall callback. The registry
+     * survives scene transitions because it lives on the Game instance. */
+    const resolvedData: GameOverData | undefined =
+      (data && typeof data.victory === 'boolean')
+        ? data
+        : (this.registry.get('gameOverData') as GameOverData | undefined);
+
+    /* Clean up registry entry after reading (prevent stale data on replay). */
+    this.registry.remove('gameOverData');
+
     /* Safe defaults for all fields. */
-    const victory = data?.victory ?? false;
-    const score = data?.score ?? 0;
-    const wavesSurvived = data?.wavesSurvived ?? 0;
-    const totalKills = data?.totalKills ?? 0;
-    const objectiveHpRemaining = data?.objectiveHpRemaining ?? 0;
-    const isNewSessionBest = data?.isNewSessionBest ?? false;
+    const victory = resolvedData?.victory ?? false;
+    const score = resolvedData?.score ?? 0;
+    const wavesSurvived = resolvedData?.wavesSurvived ?? 0;
+    const totalKills = resolvedData?.totalKills ?? 0;
+    const objectiveHpRemaining = resolvedData?.objectiveHpRemaining ?? 0;
+    const isNewSessionBest = resolvedData?.isNewSessionBest ?? false;
 
     /* --- Background --- */
     this.cameras.main.setBackgroundColor('#1A1A2E');

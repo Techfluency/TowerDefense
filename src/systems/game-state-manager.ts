@@ -293,6 +293,12 @@ export class GameStateManager extends BaseSystem {
       isNewSessionBest,
     };
 
+    /* Store gameOverData on registry as a reliable fallback.
+     * Phaser's scene.start data parameter can be lost when the
+     * originating scene shuts down during a delayedCall callback.
+     * The GameOver scene reads from registry if scene data is empty. */
+    this.scene.registry.set('gameOverData', gameOverData);
+
     /* 1-second freeze + dim overlay, then scene transition.
      * Uses Phaser TimerEvent which fires even when update loop is skipped
      * (isGameOver causes Gameplay.update() to return early, but Phaser's
@@ -334,6 +340,11 @@ export class GameStateManager extends BaseSystem {
       objectiveHpRemaining: this.gameState.objectiveHp,
       isNewSessionBest,
     };
+
+    /* Store gameOverData on registry as a reliable fallback.
+     * Same pattern as triggerDefeat -- ensures data survives
+     * the delayedCall + scene transition lifecycle. */
+    this.scene.registry.set('gameOverData', gameOverData);
 
     /* Brief delay for victory to let the moment land. */
     this.scene.time.delayedCall(500, () => {

@@ -39,11 +39,12 @@ export class DebugOverlay extends Phaser.Scene {
   }
 
   /**
-   * Creates the debug overlay text objects in the top-LEFT corner.
+   * Creates the debug overlay text objects in the BOTTOM-LEFT corner.
    * Semi-transparent black background for readability over game content.
    *
-   * Moved from top-right to top-left to avoid overlapping the build menu
-   * panel which occupies the right side of the screen (D2 fix).
+   * Positioned at the bottom-left to avoid overlapping the HUD top bar
+   * (currency, score, wave counter) which occupies the top 60px of the
+   * screen. Previously top-left, which obscured HUD elements (D1/D2 fix).
    */
   create(): void {
     const padding = 10;
@@ -54,40 +55,45 @@ export class DebugOverlay extends Phaser.Scene {
       color: '#ffffff',
     };
 
-    /* Semi-transparent background for readability. Positioned top-left
-     * to avoid overlapping the build menu panel on the right side. */
+    /* Canvas height for bottom-anchoring the overlay. */
+    const gameHeight = Number(this.game.config.height);
+    const overlayHeight = 101;
+    const overlayY = gameHeight - overlayHeight;
+
+    /* Semi-transparent background for readability. Positioned bottom-left
+     * to avoid overlapping the HUD bar and objective HP bar at the top. */
     const bg = this.add.graphics();
     bg.fillStyle(0x000000, 0.5);
-    bg.fillRect(0, 0, 320, 101);
+    bg.fillRect(0, overlayY, 320, overlayHeight);
     bg.setDepth(998);
 
     /* FPS counter -- updated every second, turns red below threshold. */
     this.fpsText = this.add
-      .text(x, padding, `FPS: ${TARGET_FPS}`, textStyle)
+      .text(x, overlayY + padding, `FPS: ${TARGET_FPS}`, textStyle)
       .setOrigin(0, 0)
       .setDepth(999);
 
     /* Active entity counts from the pool manager. */
     this.entityText = this.add
-      .text(x, padding + 18, 'Enemies: 0 / Projectiles: 0', textStyle)
+      .text(x, overlayY + padding + 18, 'Enemies: 0 / Projectiles: 0', textStyle)
       .setOrigin(0, 0)
       .setDepth(999);
 
     /* Game seed for reproducibility debugging. */
     this.seedText = this.add
-      .text(x, padding + 36, 'Seed: ---', textStyle)
+      .text(x, overlayY + padding + 36, 'Seed: ---', textStyle)
       .setOrigin(0, 0)
       .setDepth(999);
 
     /* Map info: path length and spawn/objective coordinates. */
     this.mapText = this.add
-      .text(x, padding + 54, 'Map: ---', textStyle)
+      .text(x, overlayY + padding + 54, 'Map: ---', textStyle)
       .setOrigin(0, 0)
       .setDepth(999);
 
     /* Wave info: current wave, state, prep remaining. */
     this.waveText = this.add
-      .text(x, padding + 72, 'Wave: ---', textStyle)
+      .text(x, overlayY + padding + 72, 'Wave: ---', textStyle)
       .setOrigin(0, 0)
       .setDepth(999);
   }

@@ -443,6 +443,12 @@ export class WaveSystem extends BaseSystem {
 
     this.currentState = WaveState.ACTIVE;
 
+    /* Update gameState.currentWave immediately when the wave starts so
+     * HUD displays the correct wave number during ACTIVE state. Previously
+     * this was only set in updateComplete(), causing the HUD to show the
+     * completed wave count instead of the current wave (D4 fix). */
+    this.gameState.currentWave = this.waveIndex + 1;
+
     /* Build upcoming composition for the NEXT wave (N+1) for the event payload. */
     const nextWaveIndex = this.waveIndex + 1;
     const upcomingComposition: CompositionSummaryEntry[] =
