@@ -108,6 +108,7 @@ const sprites: Array<[string, number, number, number, number, number]> = [
   ['enemy-swarm',       16, 16, 0xd9, 0x4a, 0x8b], // Pink (#D94A8B)
   ['projectile-arrow',   8, 16, 0xd9, 0xc7, 0x4a], // Yellow
   ['projectile-blast',  12, 12, 0xd9, 0xb0, 0x4a], // Orange-yellow
+  ['projectile-missile', 10, 10, 0xff, 0x6b, 0x35], // Orange (#FF6B35)
   ['tile-path',         64, 64, 0x8B, 0x69, 0x14], // Brown
   ['tile-buildable',    64, 64, 0x4a, 0x9e, 0x4a], // Green
   ['tile-blocked',      64, 64, 0x44, 0x44, 0x44], // Dark gray

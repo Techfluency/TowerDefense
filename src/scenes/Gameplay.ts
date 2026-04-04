@@ -28,6 +28,8 @@ import { EnemySystem } from '../systems/enemy-system';
 import { WaveSystem } from '../systems/wave-system';
 import { TowerRegistry } from '../systems/tower-registry';
 import { TowerPlacementSystem } from '../systems/tower-placement-system';
+import { TowerCombatSystem } from '../systems/tower-combat-system';
+import { ProjectileSystem } from '../systems/projectile-system';
 import type { BaseSystem } from '../systems/base-system';
 
 export class Gameplay extends Phaser.Scene {
@@ -111,6 +113,28 @@ export class Gameplay extends Phaser.Scene {
      * enemies at their current-frame positions. */
     const enemySystem = new EnemySystem(this, this.gameState, this.poolManager, this.configManager);
 
+    /* Store enemySystem on registry before combat systems init (they resolve it). */
+    this.registry.set('enemySystem', enemySystem);
+
+    /* Priority 3: Tower combat system -- targeting, cooldowns, fire initiation.
+     * Reads tower positions from TowerRegistry, enemy positions from EnemySystem.
+     * Fires after enemies move so targeting uses current-frame positions. */
+    const towerCombatSystem = new TowerCombatSystem(
+      this, this.gameState, this.configManager,
+    );
+
+    /* Priority 4: Projectile system -- movement, collision, pool lifecycle.
+     * Runs after combat so newly fired projectiles begin moving the same frame. */
+    const projectileSystem = new ProjectileSystem(
+      this, this.gameState, this.poolManager,
+    );
+
+    /* Wire the projectile system reference into combat system (created after it). */
+    towerCombatSystem.setProjectileSystem(projectileSystem);
+
+    /* Store placement system on registry so combat system can check placement mode. */
+    this.registry.set('towerPlacementSystem', towerPlacementSystem);
+
     this.systems = [
       mapGenerator,          /* Priority 0 (map) */
       mapRenderer,           /* Priority 0 (map) */
@@ -119,14 +143,11 @@ export class Gameplay extends Phaser.Scene {
       towerPlacementSystem,  /* Priority 0 (tower placement UI) -- BOLT-005 */
       waveSystem,            /* Priority 1 (wave) -- BOLT-004 */
       enemySystem,           /* Priority 2 (enemy) -- BOLT-003 */
-      /* Priority 3: TowerCombatSystem (BOLT-006) */
-      /* Priority 4: ProjectileSystem (BOLT-006) */
+      towerCombatSystem,     /* Priority 3 (tower combat) -- BOLT-006 */
+      projectileSystem,      /* Priority 4 (projectile) -- BOLT-006 */
       /* Priority 5: EconomySystem (BOLT-008) */
       /* Priority 6: UpgradeSystem (BOLT-007) */
     ];
-
-    /* Store enemySystem on registry for cross-system access (BOLT-004, BOLT-006). */
-    this.registry.set('enemySystem', enemySystem);
 
     /* Call init() on each system after all are constructed.
      * Separate from constructor so all systems exist before any wires listeners. */
@@ -182,6 +203,8 @@ export class Gameplay extends Phaser.Scene {
     this.registry.remove('gameState');
     this.registry.remove('configManager');
     this.registry.remove('enemySystem');
+    this.registry.remove('towerPlacementSystem');
+    /* Note: 'towerCombatSystem' is removed by TowerCombatSystem.destroy() above. */
 
     /* Remove shutdown listener to prevent double-firing on next create(). */
     this.events.off('shutdown', this.handleShutdown, this);

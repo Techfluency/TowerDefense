@@ -31,5 +31,8 @@ export const DEPTH_HEALTH_BARS = 21;
 /** Projectiles -- above everything except UI. */
 export const DEPTH_PROJECTILES = 25;
 
+/** Impact VFX -- above projectiles, below UI. */
+export const DEPTH_VFX = 26;
+
 /** HUD elements -- always on top. */
 export const DEPTH_UI = 100;

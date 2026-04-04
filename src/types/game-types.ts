@@ -54,6 +54,11 @@ export interface TowerDefinition {
   description: string;
   /** Sprite key for the Phaser asset loader. */
   spriteKey: string;
+  /**
+   * References ProjectileDefinition.id. Use "none" for towers that do not
+   * fire projectile entities (Focused hitscan, Broadcast burst).
+   */
+  projectileType: string;
 }
 
 // ---------------------------------------------------------------------------

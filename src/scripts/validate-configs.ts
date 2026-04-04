@@ -88,6 +88,7 @@ if (towers) {
     requireField(t, 'targetingMode', 'string', 'towers.json', i);
     requireField(t, 'description', 'string', 'towers.json', i);
     requireField(t, 'spriteKey', 'string', 'towers.json', i);
+    requireField(t, 'projectileType', 'string', 'towers.json', i);
 
     const id = t.id as string;
     if (seenIds.has(id)) {
@@ -224,6 +225,28 @@ if (projectiles) {
       errors.push(`projectiles.json[${i}]: duplicate id "${id}"`);
     }
     seenIds.add(id);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Cross-validate tower projectileType references
+// ---------------------------------------------------------------------------
+if (towers && projectiles) {
+  const validProjectileIds = new Set<string>();
+  for (const p of projectiles) {
+    const pid = (p as Record<string, unknown>).id;
+    if (typeof pid === 'string') validProjectileIds.add(pid);
+  }
+
+  for (let i = 0; i < towers.length; i++) {
+    const t = towers[i] as Record<string, unknown>;
+    const pt = t.projectileType as string;
+    if (typeof pt === 'string' && pt !== 'none' && !validProjectileIds.has(pt)) {
+      errors.push(
+        `towers.json[${i}]: projectileType "${pt}" not found in projectiles.json. ` +
+        `Available: ${[...validProjectileIds].join(', ')}`,
+      );
+    }
   }
 }
 

@@ -78,6 +78,7 @@ export const ASSET_MANIFEST: AssetManifest = {
     /* Projectile placeholder sprites (yellow variants). */
     { key: 'projectile-arrow', path: 'sprites/projectile-arrow.png' },
     { key: 'projectile-blast', path: 'sprites/projectile-blast.png' },
+    { key: 'projectile-missile', path: 'sprites/projectile-missile.png' },
 
     /* Tile placeholder sprites. */
     { key: 'tile-path', path: 'sprites/tile-path.png' },

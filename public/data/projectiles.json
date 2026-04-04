@@ -10,5 +10,11 @@
     "speed": 250,
     "splashRadius": 48,
     "spriteKey": "projectile-blast"
+  },
+  {
+    "id": "missile",
+    "speed": 500,
+    "splashRadius": 0,
+    "spriteKey": "projectile-missile"
   }
 ]

@@ -10,7 +10,8 @@
     "maxHp": 0,
     "targetingMode": "first",
     "description": "Fires arrows at moderate speed. Good all-around tower.",
-    "spriteKey": "tower-ranged"
+    "spriteKey": "tower-ranged",
+    "projectileType": "arrow"
   },
   {
     "id": "focused",
@@ -23,7 +24,8 @@
     "maxHp": 0,
     "targetingMode": "strongest",
     "description": "High damage, slow fire rate. Best against armored targets.",
-    "spriteKey": "tower-focused"
+    "spriteKey": "tower-focused",
+    "projectileType": "none"
   },
   {
     "id": "broadcast",
@@ -36,7 +38,8 @@
     "maxHp": 0,
     "targetingMode": "closest",
     "description": "Damages all enemies in range. Short range, moderate damage.",
-    "spriteKey": "tower-broadcast"
+    "spriteKey": "tower-broadcast",
+    "projectileType": "none"
   },
   {
     "id": "antiair",
@@ -49,6 +52,7 @@
     "maxHp": 0,
     "targetingMode": "first",
     "description": "Targets flying enemies. Cannot hit ground units.",
-    "spriteKey": "tower-antiair"
+    "spriteKey": "tower-antiair",
+    "projectileType": "missile"
   }
 ]
