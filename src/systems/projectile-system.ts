@@ -21,6 +21,8 @@ import type { EnemyHitPayload } from '../types/events';
 import type { PoolManager } from '../utils/pool-manager';
 import type { EnemySystem } from './enemy-system';
 import { DEPTH_PROJECTILES, DEPTH_VFX } from '../config/depth-layers';
+import type { VFXManager } from '../vfx/vfx-manager';
+import { TRAIL_ARROW_FREQUENCY, TRAIL_MISSILE_FREQUENCY } from '../vfx/vfx-config';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -56,6 +58,16 @@ export class ProjectileSystem extends BaseSystem {
    * means no new damage, but in-flight projectiles still complete travel). */
   private combatActive = true;
 
+  /** VFX manager for impact bursts and projectile trails. BOLT-014. */
+  private vfxManager: VFXManager | null = null;
+
+  /**
+   * Per-projectile trail timers. Tracks milliseconds since last trail
+   * particle was emitted for each projectile (keyed by array index).
+   * BOLT-014.
+   */
+  private trailTimers: Map<Phaser.GameObjects.Sprite, number> = new Map();
+
   /**
    * @param scene - The Gameplay scene.
    * @param gameState - Shared per-run game state.
@@ -76,6 +88,9 @@ export class ProjectileSystem extends BaseSystem {
   init(): void {
     this.enemySystem = this.scene.registry.get('enemySystem') as EnemySystem;
     this.listen(GAME_EVENTS.GAME_OVER, this.onGameOver as (...args: never[]) => void);
+
+    /* BOLT-014: Resolve VFX manager for impact bursts and trails. */
+    this.vfxManager = (this.scene.registry.get('vfxManager') as VFXManager) ?? null;
   }
 
   /**
@@ -118,6 +133,7 @@ export class ProjectileSystem extends BaseSystem {
       if (distSq <= ARRIVAL_THRESHOLD_SQ || moveDistance * moveDistance >= distSq) {
         /* Arrived at destination. */
         this.handleProjectileArrival(proj);
+        this.trailTimers.delete(proj.sprite);
         this.activeProjectiles.splice(i, 1);
       } else {
         /* Move toward target. */
@@ -125,6 +141,9 @@ export class ProjectileSystem extends BaseSystem {
         const ratio = moveDistance / dist;
         proj.sprite.x += dx * ratio;
         proj.sprite.y += dy * ratio;
+
+        /* BOLT-014: Emit trail particles at configured frequency. */
+        this.emitTrailIfDue(proj, delta);
       }
     }
   }
@@ -138,6 +157,7 @@ export class ProjectileSystem extends BaseSystem {
       this.poolManager.releaseProjectile(proj.sprite);
     }
     this.activeProjectiles.length = 0;
+    this.trailTimers.clear();
     super.destroy();
   }
 
@@ -247,10 +267,18 @@ export class ProjectileSystem extends BaseSystem {
   // ---------------------------------------------------------------------------
 
   /**
-   * Creates a brief flash circle at the impact point, fading out over 100ms.
-   * Color and radius depend on the projectile type.
+   * Plays impact VFX at the hit position.
+   * BOLT-014: Delegates to VFXManager for particle burst impact.
+   * Falls back to simple circle flash if VFXManager is unavailable.
    */
   private playImpactFlash(x: number, y: number, projectileType: string): void {
+    if (this.vfxManager) {
+      /* BOLT-014: Particle burst impact via VFXManager. */
+      this.vfxManager.playImpactBurst(x, y, projectileType);
+      return;
+    }
+
+    /* Fallback: simple circle flash (original behavior). */
     const isArrow = projectileType === 'arrow';
     const radius = isArrow ? IMPACT_RADIUS_ARROW : IMPACT_RADIUS_MISSILE;
     const color = isArrow ? COLOR_IMPACT_ARROW : COLOR_IMPACT_MISSILE;
@@ -266,6 +294,35 @@ export class ProjectileSystem extends BaseSystem {
       duration: IMPACT_FLASH_DURATION_MS,
       onComplete: () => gfx.destroy(),
     });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Private -- Projectile Trails (BOLT-014)
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Emits a trail particle for the given projectile if enough time has
+   * elapsed since the last emission. Uses per-projectile trail timers.
+   *
+   * Arrow trails emit every TRAIL_ARROW_FREQUENCY ms.
+   * Missile trails emit every TRAIL_MISSILE_FREQUENCY ms.
+   */
+  private emitTrailIfDue(proj: Projectile, delta: number): void {
+    if (!this.vfxManager || !this.vfxManager.areTrailsEnabled()) return;
+
+    const elapsed = (this.trailTimers.get(proj.sprite) ?? 0) + delta;
+    const frequency = proj.projectileType === 'arrow'
+      ? TRAIL_ARROW_FREQUENCY
+      : TRAIL_MISSILE_FREQUENCY;
+
+    if (elapsed >= frequency) {
+      this.vfxManager.emitTrailParticle(
+        proj.sprite.x, proj.sprite.y, proj.projectileType,
+      );
+      this.trailTimers.set(proj.sprite, 0);
+    } else {
+      this.trailTimers.set(proj.sprite, elapsed);
+    }
   }
 
   // ---------------------------------------------------------------------------

@@ -31,10 +31,13 @@ export const DEPTH_HEALTH_BARS = 21;
 /** Tower health bars -- above enemy health bars, below projectiles. BOLT-007. */
 export const DEPTH_TOWER_HEALTH_BARS = 22;
 
+/** Projectile trail particles -- below projectiles, above health bars. BOLT-014. */
+export const DEPTH_PROJECTILE_TRAILS = 23;
+
 /** Projectiles -- above everything except UI. */
 export const DEPTH_PROJECTILES = 25;
 
-/** Impact VFX -- above projectiles, below UI. */
+/** Impact VFX -- above projectiles, below UI. BOLT-014 enhanced. */
 export const DEPTH_VFX = 26;
 
 /** Floating reward/notification text -- above game objects, below HUD. BOLT-009. */

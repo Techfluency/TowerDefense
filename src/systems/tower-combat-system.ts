@@ -33,6 +33,7 @@ import {
   DEPTH_PROJECTILES,
   DEPTH_RANGE_PREVIEW,
 } from '../config/depth-layers';
+import type { VFXManager } from '../vfx/vfx-manager';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -87,6 +88,9 @@ export class TowerCombatSystem extends BaseSystem {
   private enemySystem!: EnemySystem;
   private projectileSystem!: ProjectileSystem;
 
+  /** VFX manager for muzzle flash, recoil, shockwave particles. BOLT-014. */
+  private vfxManager: VFXManager | null = null;
+
   /**
    * @param scene - The Gameplay scene.
    * @param gameState - Shared per-run game state.
@@ -111,6 +115,9 @@ export class TowerCombatSystem extends BaseSystem {
     /* Resolve cross-system references from registry. */
     this.towerRegistry = this.scene.registry.get('towerRegistry') as TowerRegistry;
     this.enemySystem = this.scene.registry.get('enemySystem') as EnemySystem;
+
+    /* BOLT-014: Resolve VFX manager for muzzle flash and shockwave VFX. */
+    this.vfxManager = (this.scene.registry.get('vfxManager') as VFXManager) ?? null;
 
     /* Listen for GAME_OVER to halt combat. */
     this.listen(GAME_EVENTS.GAME_OVER, this.onGameOver as (...args: never[]) => void);
@@ -345,6 +352,7 @@ export class TowerCombatSystem extends BaseSystem {
 
   /**
    * Dispatches the fire action based on tower class. Emits TOWER_FIRED.
+   * BOLT-014: Adds muzzle flash particles and recoil animation on fire.
    *
    * @param effectiveDamage - The tower's effective damage after upgrades.
    * @param effectiveRange - The tower's effective range after upgrades (for broadcast).
@@ -364,6 +372,12 @@ export class TowerCombatSystem extends BaseSystem {
       projectileType: def.projectileType,
     };
     this.emit(GAME_EVENTS.TOWER_FIRED, firedPayload);
+
+    /* BOLT-014: Play muzzle flash particles at tower position. */
+    if (this.vfxManager) {
+      this.vfxManager.playMuzzleFlash(tower.worldX, tower.worldY);
+      this.vfxManager.playTowerRecoil(tower.sprite);
+    }
 
     switch (def.towerClass) {
       case 'ranged':
@@ -525,16 +539,22 @@ export class TowerCombatSystem extends BaseSystem {
   }
 
   /**
-   * Draws an expanding ring that grows from 0 to the tower's range radius
-   * over 300ms, fading out simultaneously. Uses a disposable Graphics object.
+   * Plays the shockwave burst VFX: expanding ring + companion particles.
+   * BOLT-014: Delegates to VFXManager for the improved version with particles.
+   * Falls back to a simple expanding ring if VFXManager is not available.
    */
   private playShockwaveBurst(x: number, y: number, range: number): void {
+    if (this.vfxManager) {
+      /* BOLT-014: Improved shockwave with expanding ring + particles. */
+      this.vfxManager.playShockwaveBurst(x, y, range);
+      return;
+    }
+
+    /* Fallback: simple expanding ring (original behavior). */
     const gfx = this.scene.add.graphics();
     gfx.setDepth(DEPTH_PROJECTILES);
 
-    /* Track animation progress via a tween target object. */
     const progress = { t: 0 };
-
     this.scene.tweens.add({
       targets: progress,
       t: 1,

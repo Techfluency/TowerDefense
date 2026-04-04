@@ -36,6 +36,7 @@ import { EconomySystem } from '../systems/economy-system';
 import { GameStateManager } from '../systems/game-state-manager';
 import { HudSystem } from '../systems/hud-system';
 import type { BaseSystem } from '../systems/base-system';
+import { VFXManager } from '../vfx/vfx-manager';
 
 export class Gameplay extends Phaser.Scene {
   /**
@@ -81,6 +82,13 @@ export class Gameplay extends Phaser.Scene {
      * Pre-allocates enemy and projectile sprite pools. */
     this.poolManager = new PoolManager(this, DEFAULT_POOL_CONFIG);
 
+    /* --- VFX Manager (BOLT-014) ---
+     * Central factory for all visual effects. Stored on registry so systems
+     * can resolve it during init(). Quality defaults to 'high'; player can
+     * change via the settings panel (BOLT-009 integration). */
+    const vfxManager = new VFXManager(this, 'high');
+    this.registry.set('vfxManager', vfxManager);
+
     /* --- Store references on registry for DebugOverlay access ---
      * The DebugOverlay scene runs in parallel and reads these. */
     this.registry.set('poolManager', this.poolManager);
@@ -116,7 +124,8 @@ export class Gameplay extends Phaser.Scene {
 
     /* Priority 2: Enemy system -- manages all active enemies on the field.
      * Must update after wave system but before tower combat so towers target
-     * enemies at their current-frame positions. */
+     * enemies at their current-frame positions.
+     * BOLT-014: VFXManager injected for hit flash, death burst, smooth movement. */
     const enemySystem = new EnemySystem(this, this.gameState, this.poolManager, this.configManager);
 
     /* Store enemySystem on registry before combat systems init (they resolve it). */
@@ -252,6 +261,12 @@ export class Gameplay extends Phaser.Scene {
     this.registry.remove('enemySystem');
     this.registry.remove('towerPlacementSystem');
     this.registry.remove('economySystem');
+
+    /* Destroy and remove VFXManager (BOLT-014). */
+    const vfx = this.registry.get('vfxManager') as VFXManager | undefined;
+    if (vfx) vfx.destroy();
+    this.registry.remove('vfxManager');
+
     /* Note: 'gameStateManager', 'hudSystem', 'speedMultiplier' are removed
      * by GameStateManager.destroy() and HudSystem.destroy() above. */
 

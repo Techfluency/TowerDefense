@@ -4,9 +4,9 @@
  * Responsibilities:
  * - Spawning enemies via spawnEnemy() (called by BOLT-004 Wave System)
  * - Per-frame waypoint-following movement for all active enemies
- * - Sprite rotation toward direction of travel
- * - Hit flash (white tint) on damage receipt
- * - Death handling: tween fade+scale, emit ENEMY_DIED, release to pool
+ * - Smooth sprite rotation toward direction of travel (BOLT-014: lerped)
+ * - Hit flash via VFXManager (BOLT-014: white overlay that fades)
+ * - Death handling: fade+shrink+particle burst, emit ENEMY_DIED, release to pool
  * - Breakthrough handling: emit ENEMY_REACHED_OBJECTIVE, release to pool
  * - Health bar rendering via shared Graphics object
  * - Wave scaling function for stat multipliers
@@ -32,15 +32,8 @@ import {
   DEPTH_ENEMY_FLYING,
   DEPTH_HEALTH_BARS,
 } from '../config/depth-layers';
-
-/** Hit flash duration in milliseconds. */
-const HIT_FLASH_DURATION_MS = 150;
-
-/** Death tween duration in milliseconds. */
-const DEATH_TWEEN_DURATION_MS = 200;
-
-/** Death tween target scale (pop effect before fade). */
-const DEATH_TWEEN_SCALE = 1.3;
+import type { VFXManager } from '../vfx/vfx-manager';
+import { ENEMY_ROTATION_LERP_SPEED } from '../vfx/vfx-config';
 
 /** Health bar height in pixels. */
 const HEALTH_BAR_HEIGHT = 4;
@@ -83,6 +76,9 @@ export class EnemySystem extends BaseSystem {
   /** Whether map data has been loaded (waypoints available). */
   private mapReady = false;
 
+  /** VFX manager for hit flash, death burst, smooth rotation. BOLT-014. */
+  private vfxManager: VFXManager | null = null;
+
   /**
    * @param scene - The Gameplay scene.
    * @param gameState - Shared per-run game state.
@@ -107,6 +103,9 @@ export class EnemySystem extends BaseSystem {
   init(): void {
     /* Listen for map generation completion to cache waypoints. */
     this.listen(GAME_EVENTS.MAP_READY, this.onMapReady as (...args: never[]) => void);
+
+    /* Resolve VFX manager from registry (BOLT-014). */
+    this.vfxManager = (this.scene.registry.get('vfxManager') as VFXManager) ?? null;
 
     /* Create the shared Graphics for health bars -- one object, redrawn every frame. */
     this.healthBarGraphics = this.scene.add.graphics();
@@ -336,16 +335,24 @@ export class EnemySystem extends BaseSystem {
 
     const target = this.waypoints[enemy.waypointIndex]!;
     const sprite = enemy.sprite;
+    const dt = delta / 1000;
 
     /* Calculate distance to move this frame. Delta is in ms; speed is px/sec. */
-    const distanceToMove = enemy.currentSpeed * (delta / 1000);
+    const distanceToMove = enemy.currentSpeed * dt;
 
     const dx = target.worldX - sprite.x;
     const dy = target.worldY - sprite.y;
     const distToTarget = Math.sqrt(dx * dx + dy * dy);
 
-    /* Rotate sprite to face direction of travel. */
-    sprite.rotation = Math.atan2(dy, dx);
+    /* BOLT-014: Smooth rotation interpolation toward travel direction.
+     * Uses lerp instead of instant snap for fluid enemy movement. */
+    const targetAngle = Math.atan2(dy, dx);
+    if (this.vfxManager) {
+      this.vfxManager.lerpRotation(sprite, targetAngle, ENEMY_ROTATION_LERP_SPEED, dt);
+    } else {
+      /* Fallback to instant rotation if VFXManager not available. */
+      sprite.rotation = targetAngle;
+    }
 
     if (distanceToMove >= distToTarget) {
       /* Reached (or passed) the waypoint -- snap to it and advance. */
@@ -358,7 +365,7 @@ export class EnemySystem extends BaseSystem {
         this.handleBreakthrough(enemy);
       }
     } else {
-      /* Move toward the waypoint. */
+      /* Smooth movement toward the waypoint. */
       const ratio = distanceToMove / distToTarget;
       sprite.x += dx * ratio;
       sprite.y += dy * ratio;
@@ -366,31 +373,31 @@ export class EnemySystem extends BaseSystem {
   }
 
   // ---------------------------------------------------------------------------
-  // Private -- Hit Flash VFX
+  // Private -- Hit Flash VFX (BOLT-014: white overlay that fades)
   // ---------------------------------------------------------------------------
 
   /**
-   * Applies a white tint flash to the enemy sprite for HIT_FLASH_DURATION_MS.
-   * If a flash is already active, resets the timer (does not stack).
+   * Triggers the improved hit flash via VFXManager. Creates a white overlay
+   * rectangle that fades out, replacing the old simple tint approach.
+   * Falls back to brief tint if VFXManager is not available.
    */
   private triggerHitFlash(enemy: Enemy): void {
-    enemy.sprite.setTint(0xFFFFFF);
-
-    /* Cancel existing timer if already flashing (prevents stacking). */
-    if (enemy.flashTimer) {
-      enemy.flashTimer.remove(false);
-    }
-
-    enemy.flashTimer = this.scene.time.delayedCall(
-      HIT_FLASH_DURATION_MS,
-      () => {
-        /* Only clear tint if the enemy is still alive and on field. */
+    if (this.vfxManager) {
+      /* BOLT-014: Overlay-based hit flash via VFXManager. */
+      this.vfxManager.playHitFlash(enemy.sprite);
+    } else {
+      /* Fallback: brief white tint for backwards compat. */
+      enemy.sprite.setTint(0xFFFFFF);
+      if (enemy.flashTimer) {
+        enemy.flashTimer.remove(false);
+      }
+      enemy.flashTimer = this.scene.time.delayedCall(150, () => {
         if (enemy.state === EnemyState.MOVING || enemy.state === EnemyState.DYING) {
           enemy.sprite.clearTint();
         }
         enemy.flashTimer = null;
-      },
-    );
+      });
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -398,30 +405,46 @@ export class EnemySystem extends BaseSystem {
   // ---------------------------------------------------------------------------
 
   /**
-   * Handles enemy death: plays the fade+scale tween, emits ENEMY_DIED,
-   * and releases the sprite to pool on completion.
+   * Handles enemy death: plays the improved fade+shrink+particle burst,
+   * emits ENEMY_DIED, and releases the sprite to pool on completion.
+   *
+   * BOLT-014: Death animation upgraded from scale-up pop to scale-down
+   * shrink with per-archetype particle burst via VFXManager.
    */
   private handleDeath(enemy: Enemy): void {
     enemy.state = EnemyState.DYING;
+    const pos = enemy.getPosition();
 
     /* Emit death event immediately (before tween completes) so BOLT-008
      * can credit rewards promptly. */
     const payload: EnemyDiedPayload = {
       enemyId: enemy.instanceId,
       enemyType: enemy.definition.id,
-      position: enemy.getPosition(),
+      position: pos,
       reward: enemy.definition.currencyReward,
       scoreReward: enemy.definition.scoreReward,
     };
     this.emit(GAME_EVENTS.ENEMY_DIED, payload);
 
-    /* Play death tween: fade out + scale pop. */
+    /* BOLT-014: Play per-archetype particle burst via VFXManager. */
+    if (this.vfxManager) {
+      this.vfxManager.playDeathBurst(pos.x, pos.y, enemy.definition.id);
+    }
+
+    /* BOLT-014: Improved death tween -- fade out + scale DOWN (shrink).
+     * Old behavior was scale-up pop; new behavior is shrink-to-nothing
+     * which looks more like the enemy is dissolving. */
+    const tweenConfig = this.vfxManager?.getDeathTweenConfig() ?? {
+      duration: 200,
+      targetScale: 1.3,
+    };
+
     this.scene.tweens.add({
       targets: enemy.sprite,
       alpha: 0,
-      scaleX: DEATH_TWEEN_SCALE,
-      scaleY: DEATH_TWEEN_SCALE,
-      duration: DEATH_TWEEN_DURATION_MS,
+      scaleX: tweenConfig.targetScale,
+      scaleY: tweenConfig.targetScale,
+      duration: tweenConfig.duration,
       ease: 'Quad.easeOut',
       onComplete: () => {
         enemy.state = EnemyState.DEAD;

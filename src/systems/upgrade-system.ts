@@ -35,6 +35,7 @@ import type { TowerRegistry } from './tower-registry';
 import type { EconomySystem } from './economy-system';
 import { resolveEffectiveStats } from '../utils/stat-resolver';
 import { DEPTH_TOWER_HEALTH_BARS, DEPTH_UI } from '../config/depth-layers';
+import type { VFXManager } from '../vfx/vfx-manager';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -137,6 +138,9 @@ export class UpgradeSystem extends BaseSystem {
   /** Flag to disable interactions after GAME_OVER. */
   private gameOver = false;
 
+  /** VFX manager for upgrade particle shower. BOLT-014. */
+  private vfxManager: VFXManager | null = null;
+
   /** Cached panel text elements for live updates. */
   private panelElements: {
     hpText?: Phaser.GameObjects.Text;
@@ -195,6 +199,9 @@ export class UpgradeSystem extends BaseSystem {
         { isInPlacementMode(): boolean; enterPlacementMode(id: string): void } | undefined
         ?? null;
     }
+
+    /* BOLT-014: Resolve VFX manager for upgrade particle shower. */
+    this.vfxManager = (this.scene.registry.get('vfxManager') as VFXManager) ?? null;
 
     /* Listen for tile clicks to open/close the panel. */
     this.listen(GAME_EVENTS.TILE_CLICKED, this.onTileClicked as (...args: never[]) => void);
@@ -796,6 +803,12 @@ export class UpgradeSystem extends BaseSystem {
     const targetScale = TIER_SCALES[tierIndex] ?? 1.0;
     const tints = TIER_TINTS[tower.towerType] ?? [0xFFFFFF, 0xFFFFFF, 0xFFFFFF];
     const targetTint = tints[tierIndex] ?? 0xFFFFFF;
+
+    /* BOLT-014: Play golden particle shower + glow pulse via VFXManager.
+     * This adds particles on top of the existing flash+scale animation. */
+    if (this.vfxManager) {
+      this.vfxManager.playUpgradeVFX(tower.sprite, tower.worldX, tower.worldY);
+    }
 
     /* Phase 1: white flash. */
     tower.sprite.setTint(0xFFFFFF);
