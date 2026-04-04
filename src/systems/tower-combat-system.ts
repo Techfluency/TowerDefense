@@ -24,6 +24,7 @@ import type { GameState, PlacedTower, TowerDefinition } from '../types/game-type
 import { GAME_EVENTS } from '../types/game-types';
 import type { TowerFiredPayload, EnemyHitPayload } from '../types/events';
 import type { ConfigManager } from '../utils/config-manager';
+import { resolveEffectiveStats } from '../utils/stat-resolver';
 import type { TowerRegistry } from './tower-registry';
 import type { EnemySystem } from './enemy-system';
 import type { ProjectileSystem } from './projectile-system';
@@ -145,6 +146,8 @@ export class TowerCombatSystem extends BaseSystem {
 
     for (const tower of towers) {
       const def = this.configManager.getTower(tower.towerType);
+      /* Use effective stats from the upgrade tier, not raw definition values. */
+      const stats = resolveEffectiveStats(tower, this.configManager);
       let state = this.combatStates.get(tower.instanceId);
 
       /* Lazily create combat state for newly placed towers. */
@@ -157,8 +160,8 @@ export class TowerCombatSystem extends BaseSystem {
         this.combatStates.set(tower.instanceId, state);
       }
 
-      /* --- Target acquisition --- */
-      const target = this.acquireTarget(tower, def, activeEnemies, state);
+      /* --- Target acquisition (uses effective range) --- */
+      const target = this.acquireTarget(tower, def, activeEnemies, state, stats.range);
 
       if (!target) {
         /* No valid target: reset state to idle. */
@@ -176,15 +179,15 @@ export class TowerCombatSystem extends BaseSystem {
       /* Rotate tower sprite toward target (smooth interpolation). */
       this.rotateTowerToTarget(tower, targetPos, dt);
 
-      /* --- Fire rate cooldown --- */
+      /* --- Fire rate cooldown (uses effective fireRate) --- */
       state.cooldownAccumulator += dt;
-      const firePeriod = 1 / def.fireRate;
+      const firePeriod = 1 / stats.fireRate;
 
       if (state.cooldownAccumulator >= firePeriod) {
         state.cooldownAccumulator -= firePeriod;
 
-        /* Fire based on tower class. */
-        this.fireTower(tower, def, target);
+        /* Fire based on tower class (uses effective damage). */
+        this.fireTower(tower, def, target, stats.damage, stats.range);
       }
     }
 
@@ -241,6 +244,7 @@ export class TowerCombatSystem extends BaseSystem {
    * - strongest: highest getCurrentHp()
    * - closest: shortest distance to tower
    *
+   * @param effectiveRange - The tower's effective range after upgrades.
    * @returns The selected enemy, or null if no valid target exists.
    */
   private acquireTarget(
@@ -248,8 +252,9 @@ export class TowerCombatSystem extends BaseSystem {
     def: TowerDefinition,
     activeEnemies: Enemy[],
     state: TowerCombatState,
+    effectiveRange: number,
   ): Enemy | null {
-    const rangeSq = def.range * def.range;
+    const rangeSq = effectiveRange * effectiveRange;
     const candidates: Enemy[] = [];
 
     for (const enemy of activeEnemies) {
@@ -340,8 +345,17 @@ export class TowerCombatSystem extends BaseSystem {
 
   /**
    * Dispatches the fire action based on tower class. Emits TOWER_FIRED.
+   *
+   * @param effectiveDamage - The tower's effective damage after upgrades.
+   * @param effectiveRange - The tower's effective range after upgrades (for broadcast).
    */
-  private fireTower(tower: PlacedTower, def: TowerDefinition, target: Enemy): void {
+  private fireTower(
+    tower: PlacedTower,
+    def: TowerDefinition,
+    target: Enemy,
+    effectiveDamage: number,
+    effectiveRange: number,
+  ): void {
     /* Emit TOWER_FIRED event. */
     const firedPayload: TowerFiredPayload = {
       towerId: tower.instanceId,
@@ -353,19 +367,19 @@ export class TowerCombatSystem extends BaseSystem {
 
     switch (def.towerClass) {
       case 'ranged':
-        this.fireProjectile(tower, def, target);
+        this.fireProjectile(tower, def, target, effectiveDamage);
         break;
 
       case 'focused':
-        this.fireHitscan(tower, def, target);
+        this.fireHitscan(tower, target, effectiveDamage);
         break;
 
       case 'broadcast':
-        this.fireBroadcast(tower, def);
+        this.fireBroadcast(tower, effectiveDamage, effectiveRange);
         break;
 
       case 'antiair':
-        this.fireProjectile(tower, def, target);
+        this.fireProjectile(tower, def, target, effectiveDamage);
         break;
     }
   }
@@ -377,8 +391,15 @@ export class TowerCombatSystem extends BaseSystem {
   /**
    * Creates a projectile via ProjectileSystem. Used by Ranged and Anti-Air.
    * If the pool is exhausted, the fire is silently skipped.
+   *
+   * @param effectiveDamage - Damage from stat resolver (tier-adjusted).
    */
-  private fireProjectile(tower: PlacedTower, def: TowerDefinition, target: Enemy): void {
+  private fireProjectile(
+    tower: PlacedTower,
+    def: TowerDefinition,
+    target: Enemy,
+    effectiveDamage: number,
+  ): void {
     if (!this.projectileSystem) return;
 
     const projDef = this.configManager.getProjectile(def.projectileType);
@@ -391,7 +412,7 @@ export class TowerCombatSystem extends BaseSystem {
       target.instanceId,
       { x: targetPos.x, y: targetPos.y },
       projDef.speed,
-      def.damage,
+      effectiveDamage,
       'physical',
       def.id,
       def.projectileType,
@@ -405,18 +426,24 @@ export class TowerCombatSystem extends BaseSystem {
   /**
    * Instantly applies damage to the target and plays a hitscan line-flash.
    * No projectile entity is created -- the Sniper Tower fires instantly.
+   *
+   * @param effectiveDamage - Damage from stat resolver (tier-adjusted).
    */
-  private fireHitscan(tower: PlacedTower, def: TowerDefinition, target: Enemy): void {
+  private fireHitscan(
+    tower: PlacedTower,
+    target: Enemy,
+    effectiveDamage: number,
+  ): void {
     const targetPos = target.getPosition();
 
     /* Apply damage immediately through the canonical pipeline. */
-    this.enemySystem.applyDamageToEnemy(target.instanceId, def.damage, 'physical');
+    this.enemySystem.applyDamageToEnemy(target.instanceId, effectiveDamage, 'physical');
 
     /* Emit ENEMY_HIT for hit tracking. */
     const hitPayload: EnemyHitPayload = {
       enemyId: target.instanceId,
       projectileType: 'none',
-      damage: def.damage,
+      damage: effectiveDamage,
       position: { x: targetPos.x, y: targetPos.y },
     };
     this.emit(GAME_EVENTS.ENEMY_HIT, hitPayload);
@@ -459,13 +486,20 @@ export class TowerCombatSystem extends BaseSystem {
   /**
    * Deals damage to all ground enemies currently within the tower's range.
    * No projectile entity is created. Emits ENEMY_HIT per enemy hit.
+   *
+   * @param effectiveDamage - Damage from stat resolver (tier-adjusted).
+   * @param effectiveRange - Range from stat resolver (tier-adjusted).
    */
-  private fireBroadcast(tower: PlacedTower, def: TowerDefinition): void {
+  private fireBroadcast(
+    tower: PlacedTower,
+    effectiveDamage: number,
+    effectiveRange: number,
+  ): void {
     const activeEnemies = this.enemySystem.getActiveEnemies();
-    const rangeSq = def.range * def.range;
+    const rangeSq = effectiveRange * effectiveRange;
 
     for (const enemy of activeEnemies) {
-      /* Broadcast only hits ground enemies (AC-007). */
+      /* Broadcast only hits ground enemies. */
       if (enemy.isFlying) continue;
 
       const dx = enemy.sprite.x - tower.worldX;
@@ -473,21 +507,21 @@ export class TowerCombatSystem extends BaseSystem {
       if (dx * dx + dy * dy > rangeSq) continue;
 
       /* Apply damage through the canonical pipeline. */
-      this.enemySystem.applyDamageToEnemy(enemy.instanceId, def.damage, 'physical');
+      this.enemySystem.applyDamageToEnemy(enemy.instanceId, effectiveDamage, 'physical');
 
       /* Emit ENEMY_HIT per enemy hit. */
       const pos = enemy.getPosition();
       const hitPayload: EnemyHitPayload = {
         enemyId: enemy.instanceId,
         projectileType: 'none',
-        damage: def.damage,
+        damage: effectiveDamage,
         position: { x: pos.x, y: pos.y },
       };
       this.emit(GAME_EVENTS.ENEMY_HIT, hitPayload);
     }
 
     /* Play shockwave burst VFX. */
-    this.playShockwaveBurst(tower.worldX, tower.worldY, def.range);
+    this.playShockwaveBurst(tower.worldX, tower.worldY, effectiveRange);
   }
 
   /**
@@ -555,7 +589,8 @@ export class TowerCombatSystem extends BaseSystem {
   }
 
   /**
-   * Draws the range circle for the given tower.
+   * Draws the range circle for the given tower using its effective range.
+   * Effective range accounts for upgrade tier, not just base definition.
    */
   private showHoverRange(tower: PlacedTower): void {
     if (!this.rangeGraphics) return;
@@ -564,11 +599,11 @@ export class TowerCombatSystem extends BaseSystem {
     if (this.hoveredTowerId === tower.instanceId) return;
 
     this.hoveredTowerId = tower.instanceId;
-    const def = this.configManager.getTower(tower.towerType);
+    const stats = resolveEffectiveStats(tower, this.configManager);
 
     this.rangeGraphics.clear();
     this.rangeGraphics.lineStyle(RANGE_CIRCLE_LINE_WIDTH, 0xFFFFFF, RANGE_CIRCLE_ALPHA);
-    this.rangeGraphics.strokeCircle(tower.worldX, tower.worldY, def.range);
+    this.rangeGraphics.strokeCircle(tower.worldX, tower.worldY, stats.range);
     this.rangeGraphics.setVisible(true);
   }
 

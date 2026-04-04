@@ -105,6 +105,7 @@ export const ASSET_MANIFEST: AssetManifest = {
     { key: 'config-waves', path: '/data/waves.json' },
     { key: 'config-projectiles', path: '/data/projectiles.json' },
     { key: 'config-map', path: '/data/map-config.json' },
+    { key: 'config-tower-upgrades', path: '/data/tower-upgrades.json' },
   ],
 
   tilemaps: [

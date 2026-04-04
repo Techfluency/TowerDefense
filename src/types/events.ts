@@ -196,6 +196,24 @@ export interface TowerUpgradedPayload {
 }
 
 /**
+ * Payload for TOWER_REPAIRED event.
+ * Emitted by BOLT-007 (Upgrade System) when a tower's HP is restored.
+ * Listened by BOLT-009 (HUD notification).
+ */
+export interface TowerRepairedPayload {
+  /** Instance ID of the repaired tower. */
+  towerId: string;
+  /** References TowerDefinition.id. */
+  towerType: string;
+  /** HP restored by the repair action. */
+  hpRestored: number;
+  /** Currency spent on the repair. */
+  cost: number;
+  /** Tower's HP after repair (should be maxHp). */
+  newHp: number;
+}
+
+/**
  * Payload for TOWER_FIRED event.
  * Emitted by BOLT-006 (Tower Combat) when a tower fires a projectile.
  * Listened by VFX hooks (muzzle flash).

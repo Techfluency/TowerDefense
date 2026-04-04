@@ -49,6 +49,7 @@ export class TowerRegistry extends BaseSystem {
 
   /**
    * Creates and stores a new PlacedTower record with a generated unique ID.
+   * Initializes currentHp from the provided maxHp and totalInvested from cost.
    *
    * @param towerType - TowerDefinition.id (e.g., "ranged").
    * @param col - Grid column of placement.
@@ -57,6 +58,7 @@ export class TowerRegistry extends BaseSystem {
    * @param worldY - World pixel Y at tile center.
    * @param cost - Original purchase cost for sell refund calculation.
    * @param sprite - The Phaser sprite placed on the map.
+   * @param maxHp - Initial max HP from effective stats (BOLT-007). Defaults to 0 for backward compat.
    * @returns The newly created PlacedTower record.
    */
   registerTower(
@@ -67,6 +69,7 @@ export class TowerRegistry extends BaseSystem {
     worldY: number,
     cost: number,
     sprite: Phaser.GameObjects.Sprite,
+    maxHp: number = 0,
   ): PlacedTower {
     const tower: PlacedTower = {
       instanceId: generateId('tower'),
@@ -78,6 +81,8 @@ export class TowerRegistry extends BaseSystem {
       upgradeLevel: 1,
       cost,
       sprite,
+      currentHp: maxHp,
+      totalInvested: cost,
     };
 
     this.byId.set(tower.instanceId, tower);
@@ -175,7 +180,8 @@ export class TowerRegistry extends BaseSystem {
 
   /**
    * Calculates the sell refund amount for a tower.
-   * 50% of original cost, rounded down (D1 decision).
+   * 50% of total invested (base cost + all upgrade costs), rounded down.
+   * Updated by BOLT-007 to include upgrade investment in refund.
    *
    * @param towerId - The instance ID of the tower.
    * @returns Refund amount in currency, or 0 if tower not found.
@@ -183,7 +189,7 @@ export class TowerRegistry extends BaseSystem {
   getRefundAmount(towerId: string): number {
     const tower = this.byId.get(towerId);
     if (!tower) return 0;
-    return Math.floor(tower.cost * SELL_REFUND_RATE);
+    return Math.floor(tower.totalInvested * SELL_REFUND_RATE);
   }
 
   /**

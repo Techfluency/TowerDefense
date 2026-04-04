@@ -1,0 +1,17 @@
+[
+  { "towerId": "ranged",    "tier": 1, "cost": 0,   "damage": 10,  "fireRate": 1.5, "range": 200, "maxHp": 200 },
+  { "towerId": "ranged",    "tier": 2, "cost": 40,  "damage": 18,  "fireRate": 1.8, "range": 220, "maxHp": 250 },
+  { "towerId": "ranged",    "tier": 3, "cost": 70,  "damage": 28,  "fireRate": 2.2, "range": 240, "maxHp": 300 },
+
+  { "towerId": "focused",   "tier": 1, "cost": 0,   "damage": 40,  "fireRate": 0.5, "range": 350, "maxHp": 150 },
+  { "towerId": "focused",   "tier": 2, "cost": 60,  "damage": 65,  "fireRate": 0.6, "range": 380, "maxHp": 200 },
+  { "towerId": "focused",   "tier": 3, "cost": 100, "damage": 100, "fireRate": 0.7, "range": 420, "maxHp": 250 },
+
+  { "towerId": "broadcast",  "tier": 1, "cost": 0,   "damage": 15,  "fireRate": 0.8, "range": 128, "maxHp": 250 },
+  { "towerId": "broadcast",  "tier": 2, "cost": 50,  "damage": 25,  "fireRate": 1.0, "range": 144, "maxHp": 320 },
+  { "towerId": "broadcast",  "tier": 3, "cost": 85,  "damage": 38,  "fireRate": 1.2, "range": 160, "maxHp": 400 },
+
+  { "towerId": "antiair",   "tier": 1, "cost": 0,   "damage": 25,  "fireRate": 1.0, "range": 250, "maxHp": 180 },
+  { "towerId": "antiair",   "tier": 2, "cost": 45,  "damage": 40,  "fireRate": 1.2, "range": 280, "maxHp": 230 },
+  { "towerId": "antiair",   "tier": 3, "cost": 80,  "damage": 60,  "fireRate": 1.5, "range": 310, "maxHp": 280 }
+]

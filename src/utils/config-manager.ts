@@ -16,6 +16,7 @@ import type {
   WaveDefinition,
   ProjectileDefinition,
   MapConfigDefinition,
+  TowerUpgradeTier,
 } from '../types/game-types';
 
 /** Cache keys matching what the Preload scene uses when loading JSON files. */
@@ -25,6 +26,7 @@ const CACHE_KEYS = {
   WAVES: 'config-waves',
   PROJECTILES: 'config-projectiles',
   MAP: 'config-map',
+  TOWER_UPGRADES: 'config-tower-upgrades',
 } as const;
 
 export class ConfigManager {
@@ -42,6 +44,9 @@ export class ConfigManager {
 
   /** Map generation configuration (single object, not an array). */
   private readonly mapConfig: MapConfigDefinition;
+
+  /** Tower upgrade tiers indexed by towerId for O(1) lookup. */
+  private readonly towerUpgrades: Map<string, TowerUpgradeTier[]>;
 
   /**
    * Reads all config data from the Phaser cache. Call this after the
@@ -63,6 +68,9 @@ export class ConfigManager {
     );
     this.mapConfig = this.loadObjectFromCache<MapConfigDefinition>(
       scene, CACHE_KEYS.MAP, 'map-config.json',
+    );
+    this.towerUpgrades = this.indexUpgradesByTowerId(
+      this.loadFromCache<TowerUpgradeTier>(scene, CACHE_KEYS.TOWER_UPGRADES, 'tower-upgrades.json'),
     );
   }
 
@@ -139,6 +147,17 @@ export class ConfigManager {
   }
 
   /**
+   * Returns upgrade tier data for a tower type, sorted by tier ascending.
+   * Returns an empty array if no upgrade data exists for the given towerId.
+   *
+   * @param towerId - TowerDefinition.id (e.g., "ranged").
+   * @returns Array of TowerUpgradeTier sorted by tier.
+   */
+  getUpgrades(towerId: string): TowerUpgradeTier[] {
+    return this.towerUpgrades.get(towerId) ?? [];
+  }
+
+  /**
    * Returns the map generation configuration.
    * Unlike other configs, map-config.json is a single object, not an array.
    *
@@ -204,6 +223,30 @@ export class ConfigManager {
     const map = new Map<string, T>();
     for (const item of items) {
       map.set(item.id, item);
+    }
+    return map;
+  }
+
+  /**
+   * Groups upgrade tiers by towerId and sorts each group by tier ascending.
+   * Provides O(1) lookup by towerId for the stat resolver.
+   *
+   * @param items - Flat array of TowerUpgradeTier objects.
+   * @returns Map from towerId to sorted array of tiers.
+   */
+  private indexUpgradesByTowerId(items: TowerUpgradeTier[]): Map<string, TowerUpgradeTier[]> {
+    const map = new Map<string, TowerUpgradeTier[]>();
+    for (const item of items) {
+      let arr = map.get(item.towerId);
+      if (!arr) {
+        arr = [];
+        map.set(item.towerId, arr);
+      }
+      arr.push(item);
+    }
+    /* Sort each tower's tiers by tier number ascending. */
+    for (const arr of map.values()) {
+      arr.sort((a, b) => a.tier - b.tier);
     }
     return map;
   }

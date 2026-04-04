@@ -18,6 +18,7 @@ import { GAME_EVENTS } from '../types/game-types';
 import type { GameState, TowerDefinition } from '../types/game-types';
 import type { TileClickedPayload, TileHoverPayload, TowerPlacedPayload, TowerRemovedPayload } from '../types/events';
 import type { ConfigManager } from '../utils/config-manager';
+import { resolveEffectiveStats } from '../utils/stat-resolver';
 import type { TowerRegistry } from './tower-registry';
 import type { MapData } from '../data/map-data';
 import { TILE_SIZE } from '../config/performance-budget';
@@ -621,9 +622,15 @@ export class TowerPlacementSystem extends BaseSystem {
     towerSprite.setDepth(DEPTH_TOWERS);
     towerSprite.setOrigin(0.5, 0.5);
 
+    /* Resolve effective maxHp at tier 1 for initial currentHp (BOLT-007). */
+    const effectiveStats = resolveEffectiveStats(
+      { towerType: def.id, upgradeLevel: 1 },
+      this.configManager,
+    );
+
     /* Register in TowerRegistry (also tracks occupancy). */
     const placed = this.towerRegistry.registerTower(
-      def.id, col, row, worldX, worldY, def.cost, towerSprite,
+      def.id, col, row, worldX, worldY, def.cost, towerSprite, effectiveStats.maxHp,
     );
 
     /* Deduct currency directly (provisional -- BOLT-008 will formalize). */

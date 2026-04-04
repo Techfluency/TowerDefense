@@ -159,26 +159,46 @@ export interface ProjectileDefinition {
 // ---------------------------------------------------------------------------
 
 /**
- * Stat modifications applied when a tower is upgraded to a given tier.
- * Values are deltas added to the tower's current stats.
+ * Absolute stat values for a tower at a specific upgrade tier.
+ * Loaded from tower-upgrades.json. Each tier is self-contained --
+ * the stat resolver returns these values directly, no delta accumulation.
+ *
+ * Consumed by:
+ * - BOLT-007 stat resolver (resolveEffectiveStats)
+ * - BOLT-007 UpgradePanel (stat comparison display)
+ * - ConfigManager.getUpgrades()
  */
-export interface UpgradeDefinition {
-  /** Which tower type this upgrade applies to. References TowerDefinition.id. */
+export interface TowerUpgradeTier {
+  /** Which tower type this tier applies to. References TowerDefinition.id. */
   towerId: string;
-  /** Upgrade tier (1 = base, 2 = first upgrade, 3 = second upgrade). */
+  /** Upgrade tier (1 = base stats, 2 = first upgrade, 3 = max). */
   tier: number;
-  /** Currency cost to apply this upgrade. */
+  /** Currency cost to upgrade TO this tier. Tier 1 cost is 0. */
   cost: number;
-  /** Damage increase (added to current damage). */
-  damageDelta: number;
-  /** Fire rate increase (added to current fire rate). */
-  fireRateDelta: number;
-  /** Range increase in pixels (added to current range). */
-  rangeDelta: number;
-  /** Max HP increase (added to current max HP). */
-  maxHpDelta: number;
-  /** Sprite key for the upgraded visual. */
-  spriteKey: string;
+  /** Absolute damage value at this tier. */
+  damage: number;
+  /** Absolute attacks per second at this tier. */
+  fireRate: number;
+  /** Absolute attack range in pixels at this tier. */
+  range: number;
+  /** Absolute max HP at this tier. */
+  maxHp: number;
+}
+
+/**
+ * Effective combat stats for a tower at its current upgrade tier.
+ * Returned by resolveEffectiveStats() and consumed by TowerCombatSystem
+ * and UpgradePanel for display and combat calculations.
+ */
+export interface EffectiveTowerStats {
+  /** Effective damage at current tier. */
+  damage: number;
+  /** Effective fire rate (attacks per second) at current tier. */
+  fireRate: number;
+  /** Effective range in pixels at current tier. */
+  range: number;
+  /** Effective max HP at current tier. */
+  maxHp: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -308,6 +328,10 @@ export interface PlacedTower {
   cost: number;
   /** Reference to the Phaser sprite for this tower. Destroyed on sell. */
   sprite: Phaser.GameObjects.Sprite;
+  /** Current hit points. Initialized to effective maxHp on placement. BOLT-007. */
+  currentHp: number;
+  /** Total currency invested: base cost + sum of all upgrade costs. Used for sell refund. BOLT-007. */
+  totalInvested: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -344,6 +368,8 @@ export const GAME_EVENTS = {
   TOWER_REMOVED: 'TOWER_REMOVED',
   /** Emitted by BOLT-007 when a tower is upgraded. Listened by BOLT-009. */
   TOWER_UPGRADED: 'TOWER_UPGRADED',
+  /** Emitted by BOLT-007 when a tower is repaired. Listened by BOLT-009. */
+  TOWER_REPAIRED: 'TOWER_REPAIRED',
   /** Emitted by BOLT-006 when a tower fires. Listened by VFX hooks. */
   TOWER_FIRED: 'TOWER_FIRED',
   /** Emitted by BOLT-006 when a projectile hits an enemy. Listened by VFX, BOLT-003. */

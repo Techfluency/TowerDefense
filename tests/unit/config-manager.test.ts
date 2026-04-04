@@ -106,6 +106,7 @@ describe('ConfigManager', () => {
       'config-waves': mockWaves,
       'config-projectiles': mockProjectiles,
       'config-map': mockMapConfig,
+      'config-tower-upgrades': [],
     });
     configManager = new ConfigManager(mockScene);
   });
@@ -194,6 +195,8 @@ describe('ConfigManager', () => {
         'config-enemies': mockEnemies,
         'config-waves': mockWaves,
         'config-projectiles': mockProjectiles,
+        'config-map': mockMapConfig,
+        'config-tower-upgrades': [],
       });
       expect(() => new ConfigManager(badScene)).toThrow(
         'towers.json" not found in cache',
@@ -205,6 +208,8 @@ describe('ConfigManager', () => {
         'config-towers': mockTowers,
         'config-waves': mockWaves,
         'config-projectiles': mockProjectiles,
+        'config-map': mockMapConfig,
+        'config-tower-upgrades': [],
       });
       expect(() => new ConfigManager(badScene)).toThrow(
         'enemies.json" not found in cache',
@@ -216,6 +221,8 @@ describe('ConfigManager', () => {
         'config-towers': mockTowers,
         'config-enemies': mockEnemies,
         'config-projectiles': mockProjectiles,
+        'config-map': mockMapConfig,
+        'config-tower-upgrades': [],
       });
       expect(() => new ConfigManager(badScene)).toThrow(
         'waves.json" not found in cache',
@@ -227,6 +234,8 @@ describe('ConfigManager', () => {
         'config-towers': mockTowers,
         'config-enemies': mockEnemies,
         'config-waves': mockWaves,
+        'config-map': mockMapConfig,
+        'config-tower-upgrades': [],
       });
       expect(() => new ConfigManager(badScene)).toThrow(
         'projectiles.json" not found in cache',

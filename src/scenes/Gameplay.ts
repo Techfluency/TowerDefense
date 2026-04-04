@@ -30,6 +30,7 @@ import { TowerRegistry } from '../systems/tower-registry';
 import { TowerPlacementSystem } from '../systems/tower-placement-system';
 import { TowerCombatSystem } from '../systems/tower-combat-system';
 import { ProjectileSystem } from '../systems/projectile-system';
+import { UpgradeSystem } from '../systems/upgrade-system';
 import type { BaseSystem } from '../systems/base-system';
 
 export class Gameplay extends Phaser.Scene {
@@ -132,6 +133,14 @@ export class Gameplay extends Phaser.Scene {
     /* Wire the projectile system reference into combat system (created after it). */
     towerCombatSystem.setProjectileSystem(projectileSystem);
 
+    /* Priority 6: Upgrade system -- tower upgrades, repair, HP, panel UI.
+     * Needs ConfigManager, TowerRegistry. Needs TowerPlacementSystem for
+     * placement mode checks (wired via setter after construction). */
+    const upgradeSystem = new UpgradeSystem(
+      this, this.gameState, this.configManager, towerRegistry,
+    );
+    upgradeSystem.setTowerPlacementSystem(towerPlacementSystem);
+
     /* Store placement system on registry so combat system can check placement mode. */
     this.registry.set('towerPlacementSystem', towerPlacementSystem);
 
@@ -146,7 +155,7 @@ export class Gameplay extends Phaser.Scene {
       towerCombatSystem,     /* Priority 3 (tower combat) -- BOLT-006 */
       projectileSystem,      /* Priority 4 (projectile) -- BOLT-006 */
       /* Priority 5: EconomySystem (BOLT-008) */
-      /* Priority 6: UpgradeSystem (BOLT-007) */
+      upgradeSystem,         /* Priority 6 (upgrades) -- BOLT-007 */
     ];
 
     /* Call init() on each system after all are constructed.
@@ -198,13 +207,13 @@ export class Gameplay extends Phaser.Scene {
     /* Clear registry references to prevent stale data in DebugOverlay.
      * Note: 'mapData' is removed by MapGeneratorSystem.destroy() above.
      * Note: 'waveSystem' is removed by WaveSystem.destroy() above.
-     * Note: 'towerRegistry' is removed by TowerRegistry.destroy() above. */
+     * Note: 'towerRegistry' is removed by TowerRegistry.destroy() above.
+     * Note: 'upgradeSystem' is removed by UpgradeSystem.destroy() above. */
     this.registry.remove('poolManager');
     this.registry.remove('gameState');
     this.registry.remove('configManager');
     this.registry.remove('enemySystem');
     this.registry.remove('towerPlacementSystem');
-    /* Note: 'towerCombatSystem' is removed by TowerCombatSystem.destroy() above. */
 
     /* Remove shutdown listener to prevent double-firing on next create(). */
     this.events.off('shutdown', this.handleShutdown, this);

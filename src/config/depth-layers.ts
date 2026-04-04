@@ -28,6 +28,9 @@ export const DEPTH_ENEMY_FLYING = 20;
 /** Health bar overlay -- above all enemy sprites. */
 export const DEPTH_HEALTH_BARS = 21;
 
+/** Tower health bars -- above enemy health bars, below projectiles. BOLT-007. */
+export const DEPTH_TOWER_HEALTH_BARS = 22;
+
 /** Projectiles -- above everything except UI. */
 export const DEPTH_PROJECTILES = 25;
 

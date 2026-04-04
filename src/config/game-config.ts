@@ -20,7 +20,7 @@ import Phaser from 'phaser';
 import { Boot } from '../scenes/Boot';
 import { Preload } from '../scenes/Preload';
 import { MainMenu } from '../scenes/MainMenu';
-import { Gameplay } from '../scenes/Gameplay';
+import { Gameplay } from '../scenes/gameplay';
 import { GameOver } from '../scenes/GameOver';
 import { DebugOverlay } from '../scenes/DebugOverlay';
 
