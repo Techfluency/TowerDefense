@@ -9,7 +9,7 @@
       - user-scalable=no: explicit zoom lock for older mobile browsers
       - viewport-fit=cover: extend into notch/safe areas on modern phones
     -->
-    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
     <title>Random Gen Tower Defense</title>
     <style>
       /* Remove all margin/padding so the Phaser canvas fills the viewport.
@@ -21,7 +21,7 @@
         box-sizing: border-box;
       }
       body {
-        background-color: #000000;
+        background-color: #1a1a2e;
         overflow: hidden;
         /* BOLT-022: Prevent pull-to-refresh and overscroll bounce on mobile.
          * touch-action: none prevents all default touch behaviors on the body,
@@ -36,18 +36,15 @@
         -webkit-tap-highlight-color: transparent;
       }
       #game-container {
-        /* BOLT-022: Fixed positioning fills the entire viewport on mobile,
-         * including when the address bar hides/shows. Using 100dvh where
-         * supported, with 100vh fallback for older browsers. */
+        /* Fill the visible viewport. Phaser's Scale.CENTER_BOTH handles
+         * canvas centering via margins - no flex centering needed. */
         position: fixed;
         top: 0;
         left: 0;
-        width: 100%;
+        width: 100vw;
+        width: 100dvw;
         height: 100vh;
         height: 100dvh;
-        display: flex;
-        justify-content: center;
-        align-items: center;
       }
       /* BOLT-022: Prevent the Phaser canvas from being dragged or
        * triggering default touch behaviors. */

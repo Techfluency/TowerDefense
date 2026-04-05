@@ -81,13 +81,9 @@ export function createGameConfig(): Phaser.Types.Core.GameConfig {
 
     /**
      * Scale manager: FIT mode resizes the canvas to fill the parent
-     * container while maintaining aspect ratio. autoCenter places it
-     * in the middle of the viewport.
-     *
-     * BOLT-022: expandParent ensures the canvas parent div resizes to fill
-     * the viewport on mobile, even when the address bar hides/shows.
-     * fullscreenTarget ensures the correct element enters fullscreen
-     * when triggered via the mobile fullscreen prompt.
+     * container while maintaining 16:9 aspect ratio. On ultra-wide screens
+     * (21:9 like Samsung Galaxy S25 Ultra), the body background matches
+     * the game background color so letterbox bars are invisible.
      */
     scale: {
       mode: Phaser.Scale.FIT,

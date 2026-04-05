@@ -279,16 +279,47 @@ export class AutoTileSystem extends BaseSystem {
     const { cols, rows } = mapData.getGridDimensions();
     const variantMap: TileVariantMap = new Map();
 
-    // Bind getTileType for bitmask lookups
-    const getTileType = (c: number, r: number) => mapData.getTileType(c, r);
+    // Build a set of actual path-connected neighbor pairs from the waypoint
+    // sequence. This prevents false T-junctions when path segments run
+    // adjacent but are not consecutive steps in the route.
+    const waypoints = mapData.getWaypoints();
+    const pathNeighborSet = new Set<string>();
+    for (let i = 0; i < waypoints.length - 1; i++) {
+      const a = waypoints[i]!;
+      const b = waypoints[i + 1]!;
+      // Store both directions: "col,row->col,row"
+      pathNeighborSet.add(`${a.col},${a.row}->${b.col},${b.row}`);
+      pathNeighborSet.add(`${b.col},${b.row}->${a.col},${a.row}`);
+    }
+
+    // Bitmask using only actual path sequence neighbors (not all adjacent path tiles)
+    const computePathMask = (col: number, row: number): number => {
+      let mask = 0;
+      const key = `${col},${row}`;
+      // Also treat spawn/objective as connected for visual join
+      const isConnected = (nc: number, nr: number): boolean => {
+        const nType = mapData.getTileType(nc, nr);
+        if (nType === 'spawn' || nType === 'objective') return true;
+        return pathNeighborSet.has(`${key}->${nc},${nr}`);
+      };
+      if (isConnected(col, row - 1)) mask |= 1; // N
+      if (isConnected(col + 1, row)) mask |= 2; // E
+      if (isConnected(col, row + 1)) mask |= 4; // S
+      if (isConnected(col - 1, row)) mask |= 8; // W
+      return mask;
+    };
 
     for (let row = 0; row < rows; row++) {
       for (let col = 0; col < cols; col++) {
         const tileType = mapData.getTileType(col, row);
 
         if (tileType === 'path') {
-          const mask = computeBitmask(col, row, getTileType);
-          variantMap.set(`${col},${row}`, `tile-path-${mask}`);
+          const mask = computePathMask(col, row);
+          // Only masks 0-6, 8-10, 12 have sprites. Clamp T-junctions
+          // and crossroads to the base path sprite as a safety fallback.
+          const VALID_MASKS = new Set([0,1,2,3,4,5,6,8,9,10,12]);
+          const safeKey = VALID_MASKS.has(mask) ? `tile-path-${mask}` : 'tile-path';
+          variantMap.set(`${col},${row}`, safeKey);
         } else if (tileType === 'buildable') {
           const variant = seededVariant(mapData.seed, col, row, 5);
           variantMap.set(`${col},${row}`, `tile-buildable-${variant}`);
@@ -303,6 +334,7 @@ export class AutoTileSystem extends BaseSystem {
     // BOLT-012: resolve spawn and objective directional variants.
     // Must run after the main loop so the TileVariantMap is complete
     // for all path/buildable/blocked tiles before adding special tiles.
+    const getTileType = (c: number, r: number) => mapData.getTileType(c, r);
     this.resolveSpawnAndObjective(mapData, variantMap, getTileType);
 
     // Store on registry FIRST, then emit event -- guarantees listeners

@@ -136,7 +136,7 @@ const UNLOCK_TABLE: UnlockEntry[] = [
   },
   {
     id: 'tower_sniper',
-    level: 2,
+    level: 1,
     type: 'tower',
     name: 'Sniper Tower',
     description: 'High damage, slow fire rate. Best against armored targets.',
@@ -144,7 +144,7 @@ const UNLOCK_TABLE: UnlockEntry[] = [
   },
   {
     id: 'tower_shockwave',
-    level: 3,
+    level: 1,
     type: 'tower',
     name: 'Shockwave Tower',
     description: 'Damages all enemies in range. Short range, area effect.',
@@ -152,7 +152,7 @@ const UNLOCK_TABLE: UnlockEntry[] = [
   },
   {
     id: 'tower_aa_missile',
-    level: 4,
+    level: 1,
     type: 'tower',
     name: 'AA Missile Tower',
     description: 'Targets flying enemies. Essential for air defense.',

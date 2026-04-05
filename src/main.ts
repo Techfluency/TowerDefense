@@ -64,3 +64,24 @@ document.addEventListener('visibilitychange', () => {
     game.loop.wake();
   }
 });
+
+/**
+ * Force Phaser's scale manager to recalculate after orientation changes.
+ * On mobile browsers (especially Android Chrome), the viewport dimensions
+ * update asynchronously after rotation. A single refresh often fires before
+ * the layout settles, so we refresh multiple times over 500ms to catch the
+ * final dimensions.
+ */
+function refreshScaleAfterOrientationChange(): void {
+  const delays = [50, 150, 300, 500];
+  for (const ms of delays) {
+    setTimeout(() => game.scale.refresh(), ms);
+  }
+}
+
+window.addEventListener('orientationchange', refreshScaleAfterOrientationChange);
+screen.orientation?.addEventListener('change', refreshScaleAfterOrientationChange);
+window.addEventListener('resize', () => {
+  /* Debounced refresh -- resize fires rapidly during rotation animation. */
+  setTimeout(() => game.scale.refresh(), 100);
+});
