@@ -142,39 +142,12 @@ export const ASSET_MANIFEST: AssetManifest = {
   ],
 
   audio: [
-    /* BOLT-015: SFX -- tower fire (one per class for aurally distinct weapons). */
-    { key: 'sfx-tower-fire-ranged', path: 'audio/sfx-tower-fire-ranged.ogg' },
-    { key: 'sfx-tower-fire-focused', path: 'audio/sfx-tower-fire-focused.ogg' },
-    { key: 'sfx-tower-fire-broadcast', path: 'audio/sfx-tower-fire-broadcast.ogg' },
-    { key: 'sfx-tower-fire-antiair', path: 'audio/sfx-tower-fire-antiair.ogg' },
-
-    /* BOLT-015: SFX -- combat feedback. */
-    { key: 'sfx-enemy-hit', path: 'audio/sfx-enemy-hit.ogg' },
-    { key: 'sfx-enemy-died', path: 'audio/sfx-enemy-died.ogg' },
-
-    /* BOLT-015: SFX -- tower lifecycle. */
-    { key: 'sfx-tower-placed', path: 'audio/sfx-tower-placed.ogg' },
-    { key: 'sfx-tower-upgraded', path: 'audio/sfx-tower-upgraded.ogg' },
-    { key: 'sfx-tower-removed', path: 'audio/sfx-tower-removed.ogg' },
-
-    /* BOLT-015: SFX -- wave progression. */
-    { key: 'sfx-wave-started', path: 'audio/sfx-wave-started.ogg' },
-    { key: 'sfx-wave-completed', path: 'audio/sfx-wave-completed.ogg' },
-
-    /* BOLT-015: SFX -- game outcome stingers. */
-    { key: 'sfx-game-victory', path: 'audio/sfx-game-victory.ogg' },
-    { key: 'sfx-game-defeat', path: 'audio/sfx-game-defeat.ogg' },
-
-    /* BOLT-015: SFX -- economy and UI. */
-    { key: 'sfx-currency-gain', path: 'audio/sfx-currency-gain.ogg' },
-    { key: 'sfx-ui-click', path: 'audio/sfx-ui-click.ogg' },
-
-    /* BOLT-015: SFX -- alerts. */
-    { key: 'sfx-low-hp-alert', path: 'audio/sfx-low-hp-alert.ogg' },
-
-    /* BOLT-015: Music -- background loops. */
-    { key: 'music-menu-theme', path: 'audio/music-menu-theme.ogg' },
-    { key: 'music-gameplay-ambient', path: 'audio/music-gameplay-ambient.ogg' },
+    /* Audio files removed -- SFX are now generated at runtime via
+     * SynthAudio (Web Audio API procedural synthesis). The placeholder
+     * .ogg files were 58-byte stubs that browsers couldn't decode,
+     * causing 54 console errors per page load. Music is also removed
+     * since no real music assets exist yet. When real music files are
+     * added, re-add their entries here. */
   ],
 
   json: [

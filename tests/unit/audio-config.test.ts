@@ -1,11 +1,15 @@
 /**
  * Unit tests for audio-config.ts.
  *
- * Validates that audio configuration constants are consistent, all SFX
- * keys have corresponding entries in ASSET_MANIFEST, tower class mappings
- * cover all known classes, and rate-limit values are reasonable.
+ * Validates that audio configuration constants are consistent, tower class
+ * mappings cover all known classes, rate-limit values are reasonable, and
+ * volume multipliers are in valid ranges.
  *
- * BOLT-015 implementation.
+ * NOTE: SFX keys no longer need to match ASSET_MANIFEST audio entries
+ * because SFX is now generated at runtime via SynthAudio (Web Audio API).
+ * The audio array in ASSET_MANIFEST is empty.
+ *
+ * BOLT-015 implementation (updated: synth audio fix).
  */
 import { describe, it, expect, vi } from 'vitest';
 
@@ -55,13 +59,6 @@ describe('audio-config', () => {
       expect(unique.size).toBe(values.length);
     });
 
-    it('should have all SFX keys in the ASSET_MANIFEST audio array', () => {
-      const manifestKeys = new Set(ASSET_MANIFEST.audio.map(a => a.key));
-      for (const sfxKey of Object.values(SFX_KEYS)) {
-        expect(manifestKeys.has(sfxKey)).toBe(true);
-      }
-    });
-
     it('should have at least 15 SFX entries', () => {
       /* Brief specifies: 4 tower fire + hit + death + placed + upgraded +
        * removed + wave_start + wave_complete + victory + defeat + currency +
@@ -79,13 +76,6 @@ describe('audio-config', () => {
       const values = Object.values(MUSIC_KEYS);
       const unique = new Set(values);
       expect(unique.size).toBe(values.length);
-    });
-
-    it('should have all music keys in the ASSET_MANIFEST audio array', () => {
-      const manifestKeys = new Set(ASSET_MANIFEST.audio.map(a => a.key));
-      for (const musicKey of Object.values(MUSIC_KEYS)) {
-        expect(manifestKeys.has(musicKey)).toBe(true);
-      }
     });
 
     it('should include menu theme and gameplay ambient', () => {
@@ -196,26 +186,11 @@ describe('audio-config', () => {
   // -------------------------------------------------------------------------
 
   describe('ASSET_MANIFEST audio entries', () => {
-    it('should have 18 audio entries total (16 SFX + 2 music)', () => {
-      expect(ASSET_MANIFEST.audio.length).toBe(18);
-    });
-
-    it('should have all paths ending in .ogg', () => {
-      for (const audio of ASSET_MANIFEST.audio) {
-        expect(audio.path).toMatch(/\.ogg$/);
-      }
-    });
-
-    it('should have all paths in the audio/ directory', () => {
-      for (const audio of ASSET_MANIFEST.audio) {
-        expect(audio.path).toMatch(/^audio\//);
-      }
-    });
-
-    it('should have unique keys', () => {
-      const keys = ASSET_MANIFEST.audio.map(a => a.key);
-      const unique = new Set(keys);
-      expect(unique.size).toBe(keys.length);
+    it('should have no audio entries (SFX now uses SynthAudio)', () => {
+      /* All .ogg files have been removed. SFX is generated at runtime
+       * via Web Audio API. When real music files are added, this count
+       * should be updated to match. */
+      expect(ASSET_MANIFEST.audio.length).toBe(0);
     });
   });
 });

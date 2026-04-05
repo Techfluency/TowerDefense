@@ -1,27 +1,38 @@
 /**
  * AudioManager -- centralized audio playback and volume control.
  *
- * Wraps Phaser's SoundManager to provide:
- * - Independent SFX and music volume channels
+ * Provides:
+ * - SFX playback via Web Audio API synthesizer (SynthAudio)
  * - SFX rate limiting to prevent audio spam from rapid game events
- * - Music crossfade for smooth track transitions
+ * - Music crossfade for smooth track transitions (still via Phaser)
  * - Mute/unmute that preserves volume levels
  * - Integration with the settings panel volume sliders (registry-based)
+ *
+ * BUG FIX: Replaced Phaser audio loading for SFX with procedural
+ * synthesis. The 18 placeholder .ogg files were 58-byte stubs that
+ * browsers couldn't decode, causing 54 console errors per page load.
+ * SynthAudio generates all game sounds at runtime via OscillatorNode
+ * and GainNode, eliminating the need for audio files entirely.
+ *
+ * Music still uses Phaser's sound manager for crossfade support,
+ * but gracefully handles missing music assets (no files loaded).
  *
  * This class does NOT listen to game events directly. The AudioSystem
  * (a BaseSystem subclass) handles event subscriptions and calls
  * AudioManager methods. This separation keeps AudioManager testable
  * without needing the full Phaser event emitter.
  *
- * BOLT-015 implementation.
+ * BOLT-015 implementation (updated: synth audio fix).
  */
 import Phaser from 'phaser';
 import type { SfxKey, MusicKey, RateLimitConfig } from '../config/audio-config';
 import {
+  SFX_KEYS,
   SFX_RATE_LIMITS,
   SFX_VOLUME_MULTIPLIERS,
   MUSIC_CROSSFADE_DURATION_MS,
 } from '../config/audio-config';
+import { SynthAudio } from './synth-audio';
 
 /** Settings shape stored on the Phaser registry by MainMenu (BOLT-009). */
 interface SettingsState {
@@ -30,9 +41,39 @@ interface SettingsState {
   reduceVisualIntensity: boolean;
 }
 
+/**
+ * Maps SFX key strings to SynthAudio play method names.
+ * This is the bridge between the existing SFX_KEYS constants and
+ * the synthesizer's named methods. Tower fire keys map based on
+ * tower class sound profile.
+ */
+type SynthPlayMethod = (synth: SynthAudio) => void;
+
+const SFX_TO_SYNTH: Record<string, SynthPlayMethod> = {
+  [SFX_KEYS.TOWER_FIRE_RANGED]: (s) => s.playArrowFire(),
+  [SFX_KEYS.TOWER_FIRE_FOCUSED]: (s) => s.playSniperFire(),
+  [SFX_KEYS.TOWER_FIRE_BROADCAST]: (s) => s.playShockwaveFire(),
+  [SFX_KEYS.TOWER_FIRE_ANTIAIR]: (s) => s.playMissileFire(),
+  [SFX_KEYS.ENEMY_HIT]: (s) => s.playEnemyHit(),
+  [SFX_KEYS.ENEMY_DIED]: (s) => s.playEnemyDied(),
+  [SFX_KEYS.TOWER_PLACED]: (s) => s.playTowerPlaced(),
+  [SFX_KEYS.TOWER_UPGRADED]: (s) => s.playTowerUpgraded(),
+  [SFX_KEYS.TOWER_REMOVED]: (s) => s.playTowerRemoved(),
+  [SFX_KEYS.WAVE_STARTED]: (s) => s.playWaveStarted(),
+  [SFX_KEYS.WAVE_COMPLETED]: (s) => s.playWaveCompleted(),
+  [SFX_KEYS.GAME_VICTORY]: (s) => s.playVictory(),
+  [SFX_KEYS.GAME_DEFEAT]: (s) => s.playDefeat(),
+  [SFX_KEYS.CURRENCY_GAIN]: (s) => s.playCurrencyGain(),
+  [SFX_KEYS.UI_CLICK]: (s) => s.playUIClick(),
+  [SFX_KEYS.LOW_HP_ALERT]: (s) => s.playLowHPAlert(),
+};
+
 export class AudioManager {
-  /** Reference to the Phaser scene for sound manager access. */
+  /** Reference to the Phaser scene for music playback and registry. */
   private readonly scene: Phaser.Scene;
+
+  /** Procedural sound synthesizer for all SFX. */
+  private readonly synth: SynthAudio;
 
   /** Global SFX volume (0.0 - 1.0). Derived from settings sfxVolume (0-100). */
   private sfxVolume: number;
@@ -53,7 +94,8 @@ export class AudioManager {
   private currentMusicKey: string | null = null;
 
   /**
-   * Creates the AudioManager and reads initial volume from settings.
+   * Creates the AudioManager, initializes the SynthAudio engine,
+   * and reads initial volume from settings.
    *
    * @param scene - The Phaser scene providing the sound manager.
    */
@@ -64,6 +106,10 @@ export class AudioManager {
     const settings = this.getSettings();
     this.sfxVolume = settings.sfxVolume / 100;
     this.musicVolume = settings.musicVolume / 100;
+
+    /* Initialize the synthesizer with registry access for volume sync. */
+    this.synth = new SynthAudio(scene.registry);
+    this.synth.setVolume(this.sfxVolume);
   }
 
   // -------------------------------------------------------------------------
@@ -73,10 +119,11 @@ export class AudioManager {
   /**
    * Plays a sound effect by key, respecting volume and rate limiting.
    *
-   * The effective volume is: globalSfxVolume * perSfxMultiplier.
-   * If the sound is rate-limited and was played too recently, this is a no-op.
+   * Routes the SFX key to the appropriate SynthAudio play method.
+   * The effective volume is applied to the synth's master gain before
+   * the sound plays. Per-SFX volume multipliers scale the synth volume.
    *
-   * @param key - The SFX asset key (must be preloaded in ASSET_MANIFEST).
+   * @param key - The SFX asset key (from SFX_KEYS).
    * @returns True if the sound was played, false if skipped (muted or rate-limited).
    */
   playSfx(key: SfxKey): boolean {
@@ -89,19 +136,19 @@ export class AudioManager {
     const perSfxMult = SFX_VOLUME_MULTIPLIERS[key] ?? 1.0;
     const effectiveVolume = this.sfxVolume * perSfxMult;
 
-    /* Attempt to play via Phaser's sound manager.
-     * If the audio key is missing (placeholder not loaded), this is a no-op
-     * rather than a crash -- Phaser.Sound.BaseSoundManager.play returns false
-     * for missing keys in some builds, but may also throw. We guard both. */
+    /* Route to the synthesizer. */
+    const synthFn = SFX_TO_SYNTH[key];
+    if (!synthFn) return false;
+
     try {
-      if (!this.scene.sound || !this.scene.cache.audio.exists(key)) {
-        return false;
-      }
-      this.scene.sound.play(key, { volume: effectiveVolume });
+      /* Set the synth volume to the effective level before playing.
+       * This applies both the global SFX volume and per-sound multiplier. */
+      this.synth.setVolume(effectiveVolume);
+      synthFn(this.synth);
       this.lastPlayTime.set(key, Date.now());
       return true;
     } catch {
-      /* Graceful degradation: missing audio should not crash the game. */
+      /* Graceful degradation: synthesis failure should not crash the game. */
       return false;
     }
   }
@@ -113,14 +160,15 @@ export class AudioManager {
   /**
    * Starts playing background music, crossfading from any current track.
    *
-   * If the requested track is already playing, this is a no-op.
-   * The music loops indefinitely until stopped or replaced.
+   * Music still uses Phaser's sound manager (if available) for loop and
+   * crossfade support. With audio files removed, this gracefully no-ops
+   * when the audio cache is empty.
    *
    * @param key - The music asset key.
    */
   playMusic(key: MusicKey): void {
     if (this.currentMusicKey === key) return;
-    if (!this.scene.sound || !this.scene.cache.audio.exists(key)) return;
+    if (!this.scene.sound || !this.scene.cache?.audio?.exists(key)) return;
 
     /* Fade out the current track if one is playing. */
     if (this.currentMusicKey) {
@@ -175,13 +223,13 @@ export class AudioManager {
 
   /**
    * Sets the SFX volume from a 0-100 slider value.
-   * Updates all future playSfx calls. Does not retroactively
-   * change sounds already in flight.
+   * Updates both the internal volume and the synth's master gain.
    *
    * @param value - Volume level (0 = silent, 100 = full).
    */
   setSfxVolume(value: number): void {
     this.sfxVolume = Math.max(0, Math.min(1, value / 100));
+    this.synth.setVolume(this.sfxVolume);
   }
 
   /**
@@ -225,9 +273,16 @@ export class AudioManager {
   /**
    * Toggles mute state. When muted, no sounds play and music volume
    * drops to zero. Volume levels are preserved for restoration on unmute.
+   * Synth mute state is synchronized.
    */
   toggleMute(): void {
     this.muted = !this.muted;
+
+    /* Sync mute to the synth engine. The synth tracks its own mute
+     * independently, so we toggle it to match AudioManager state. */
+    if (this.muted !== this.synth.isMuted()) {
+      this.synth.toggleMute();
+    }
 
     /* Apply mute to the currently playing music track. */
     if (this.currentMusicKey && this.scene.sound) {
@@ -264,6 +319,7 @@ export class AudioManager {
     /* Only update if values actually changed to avoid unnecessary work. */
     if (Math.abs(newSfx - this.sfxVolume) > 0.001) {
       this.sfxVolume = newSfx;
+      this.synth.setVolume(newSfx);
     }
 
     if (Math.abs(newMusic - this.musicVolume) > 0.001) {
@@ -287,8 +343,13 @@ export class AudioManager {
 
   /**
    * Stops all audio and clears state. Called on scene shutdown.
+   * Destroys both the synth engine and any Phaser music sounds.
    */
   destroy(): void {
+    /* Clean up the synthesizer's AudioContext. */
+    this.synth.destroy();
+
+    /* Clean up Phaser music if playing. */
     if (this.currentMusicKey && this.scene.sound) {
       const sound = this.scene.sound.get(this.currentMusicKey);
       if (sound) sound.destroy();

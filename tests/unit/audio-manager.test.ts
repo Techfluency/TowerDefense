@@ -2,10 +2,14 @@
  * Unit tests for AudioManager.
  *
  * Tests volume math, mute/unmute logic, SFX rate limiting, music
- * crossfade lifecycle, and settings sync. Uses a mock Phaser scene
- * to verify AudioManager calls the correct Phaser SoundManager APIs.
+ * crossfade lifecycle, settings sync, and SynthAudio integration.
  *
- * BOLT-015 implementation.
+ * SFX now routes through SynthAudio (Web Audio API) instead of Phaser's
+ * SoundManager. Music still uses Phaser for crossfade support. The
+ * SynthAudio class is mocked here since Web Audio API is not available
+ * in the test environment.
+ *
+ * BOLT-015 implementation (updated: synth audio fix).
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
@@ -31,6 +35,36 @@ vi.mock('phaser', () => {
   };
 });
 
+/* Mock SynthAudio so tests don't need a real AudioContext. */
+vi.mock('../../src/utils/synth-audio', () => {
+  return {
+    SynthAudio: vi.fn().mockImplementation(() => ({
+      playArrowFire: vi.fn(),
+      playSniperFire: vi.fn(),
+      playShockwaveFire: vi.fn(),
+      playMissileFire: vi.fn(),
+      playEnemyHit: vi.fn(),
+      playEnemyDied: vi.fn(),
+      playTowerPlaced: vi.fn(),
+      playTowerUpgraded: vi.fn(),
+      playTowerRemoved: vi.fn(),
+      playWaveStarted: vi.fn(),
+      playWaveCompleted: vi.fn(),
+      playVictory: vi.fn(),
+      playDefeat: vi.fn(),
+      playCurrencyGain: vi.fn(),
+      playUIClick: vi.fn(),
+      playLowHPAlert: vi.fn(),
+      setVolume: vi.fn(),
+      getVolume: vi.fn(() => 1.0),
+      toggleMute: vi.fn(),
+      isMuted: vi.fn(() => false),
+      syncVolume: vi.fn(),
+      destroy: vi.fn(),
+    })),
+  };
+});
+
 import { AudioManager } from '../../src/utils/audio-manager';
 import { SFX_KEYS, MUSIC_KEYS } from '../../src/config/audio-config';
 
@@ -40,7 +74,7 @@ import { SFX_KEYS, MUSIC_KEYS } from '../../src/config/audio-config';
 
 /**
  * Creates a minimal mock Phaser scene with a mock SoundManager.
- * All sounds are tracked in the `soundStore` map for verification.
+ * Music still uses Phaser sound; SFX goes through the mocked SynthAudio.
  */
 function createMockScene(settings?: { sfxVolume: number; musicVolume: number }) {
   const soundStore = new Map<string, {
@@ -165,71 +199,40 @@ describe('AudioManager', () => {
   });
 
   // -------------------------------------------------------------------------
-  // SFX Playback
+  // SFX Playback (via SynthAudio)
   // -------------------------------------------------------------------------
 
   describe('playSfx', () => {
-    it('should play a sound when audio key exists and volume > 0', () => {
-      registerAudioKeys(scene, [SFX_KEYS.TOWER_PLACED]);
+    it('should play a sound via synth when volume > 0', () => {
+      /* SFX now goes through SynthAudio, not Phaser sound.play. */
       const played = manager.playSfx(SFX_KEYS.TOWER_PLACED);
       expect(played).toBe(true);
-      expect(scene.sound.play).toHaveBeenCalledWith(
-        SFX_KEYS.TOWER_PLACED,
-        expect.objectContaining({ volume: expect.any(Number) }),
-      );
     });
 
-    it('should return false when audio key is not loaded', () => {
-      /* Do not register the key in the cache. */
-      const played = manager.playSfx(SFX_KEYS.TOWER_PLACED);
-      expect(played).toBe(false);
-      expect(scene.sound.play).not.toHaveBeenCalled();
+    it('should return true for all valid SFX keys', () => {
+      /* Every SFX_KEYS value should have a synth mapping. */
+      for (const key of Object.values(SFX_KEYS)) {
+        const played = manager.playSfx(key);
+        expect(played).toBe(true);
+      }
     });
 
     it('should return false when muted', () => {
-      registerAudioKeys(scene, [SFX_KEYS.TOWER_PLACED]);
       manager.toggleMute();
       const played = manager.playSfx(SFX_KEYS.TOWER_PLACED);
       expect(played).toBe(false);
     });
 
     it('should return false when SFX volume is zero', () => {
-      registerAudioKeys(scene, [SFX_KEYS.TOWER_PLACED]);
       manager.setSfxVolume(0);
       const played = manager.playSfx(SFX_KEYS.TOWER_PLACED);
       expect(played).toBe(false);
     });
 
-    it('should apply per-SFX volume multiplier', () => {
-      registerAudioKeys(scene, [SFX_KEYS.UI_CLICK]);
-      manager.playSfx(SFX_KEYS.UI_CLICK);
-
-      /* UI_CLICK has a 0.5 multiplier, so at 100% global the effective
-       * volume should be 0.5. */
-      const call = (scene.sound.play as ReturnType<typeof vi.fn>).mock.calls[0];
-      const config = call?.[1] as { volume: number };
-      expect(config.volume).toBe(0.5);
-    });
-
-    it('should scale per-SFX multiplier by global SFX volume', () => {
-      registerAudioKeys(scene, [SFX_KEYS.UI_CLICK]);
-      manager.setSfxVolume(50);
-      manager.playSfx(SFX_KEYS.UI_CLICK);
-
-      /* 50% global * 0.5 per-SFX = 0.25 effective. */
-      const call = (scene.sound.play as ReturnType<typeof vi.fn>).mock.calls[0];
-      const config = call?.[1] as { volume: number };
-      expect(config.volume).toBe(0.25);
-    });
-
-    it('should use 1.0 multiplier for sounds without explicit multiplier', () => {
-      registerAudioKeys(scene, [SFX_KEYS.TOWER_FIRE_RANGED]);
-      manager.playSfx(SFX_KEYS.TOWER_FIRE_RANGED);
-
-      const call = (scene.sound.play as ReturnType<typeof vi.fn>).mock.calls[0];
-      const config = call?.[1] as { volume: number };
-      /* 100% global * 1.0 default = 1.0 */
-      expect(config.volume).toBe(1.0);
+    it('should not call Phaser sound.play for SFX', () => {
+      /* SFX should go through synth, NOT Phaser. */
+      manager.playSfx(SFX_KEYS.TOWER_PLACED);
+      expect(scene.sound.play).not.toHaveBeenCalled();
     });
   });
 
@@ -239,14 +242,11 @@ describe('AudioManager', () => {
 
   describe('rate limiting', () => {
     it('should play rate-limited sound on first call', () => {
-      registerAudioKeys(scene, [SFX_KEYS.ENEMY_HIT]);
       const played = manager.playSfx(SFX_KEYS.ENEMY_HIT);
       expect(played).toBe(true);
     });
 
     it('should block rate-limited sound when called too quickly', () => {
-      registerAudioKeys(scene, [SFX_KEYS.ENEMY_HIT]);
-
       /* First play succeeds. */
       manager.playSfx(SFX_KEYS.ENEMY_HIT);
 
@@ -256,8 +256,6 @@ describe('AudioManager', () => {
     });
 
     it('should allow rate-limited sound after interval passes', () => {
-      registerAudioKeys(scene, [SFX_KEYS.ENEMY_HIT]);
-
       /* First play. */
       manager.playSfx(SFX_KEYS.ENEMY_HIT);
 
@@ -269,8 +267,6 @@ describe('AudioManager', () => {
     });
 
     it('should not rate-limit sounds without a rate limit config', () => {
-      registerAudioKeys(scene, [SFX_KEYS.TOWER_PLACED]);
-
       /* TOWER_PLACED has no rate limit -- should play twice in a row. */
       const first = manager.playSfx(SFX_KEYS.TOWER_PLACED);
       const second = manager.playSfx(SFX_KEYS.TOWER_PLACED);
@@ -280,7 +276,7 @@ describe('AudioManager', () => {
   });
 
   // -------------------------------------------------------------------------
-  // Music Playback
+  // Music Playback (still via Phaser)
   // -------------------------------------------------------------------------
 
   describe('music', () => {
@@ -391,6 +387,12 @@ describe('AudioManager', () => {
       const lastCall = calls[calls.length - 1];
       expect(lastCall?.[0]).toBe(0.8);
     });
+
+    it('should block SFX when muted', () => {
+      manager.toggleMute();
+      const played = manager.playSfx(SFX_KEYS.ENEMY_DIED);
+      expect(played).toBe(false);
+    });
   });
 
   // -------------------------------------------------------------------------
@@ -476,27 +478,33 @@ describe('AudioManager', () => {
   // -------------------------------------------------------------------------
 
   describe('edge cases', () => {
-    it('should handle null sound manager gracefully', () => {
+    it('should handle null sound manager gracefully for SFX', () => {
       const brokenScene = {
         ...scene,
         sound: null,
       };
       const mgr = new AudioManager(brokenScene as unknown as Phaser.Scene);
-      expect(mgr.playSfx(SFX_KEYS.TOWER_PLACED)).toBe(false);
+      /* SFX goes through synth, not Phaser -- should still work. */
+      expect(mgr.playSfx(SFX_KEYS.TOWER_PLACED)).toBe(true);
     });
 
-    it('should handle Phaser sound.play throwing an error', () => {
-      registerAudioKeys(scene, [SFX_KEYS.TOWER_PLACED]);
-      (scene.sound.play as ReturnType<typeof vi.fn>).mockImplementation(() => {
-        throw new Error('WebAudio not initialized');
-      });
-
-      const played = manager.playSfx(SFX_KEYS.TOWER_PLACED);
-      expect(played).toBe(false);
+    it('should handle null sound manager gracefully for music', () => {
+      const brokenScene = {
+        ...scene,
+        sound: null,
+      };
+      const mgr = new AudioManager(brokenScene as unknown as Phaser.Scene);
+      /* Music needs Phaser sound -- should no-op without crashing. */
+      expect(() => mgr.playMusic(MUSIC_KEYS.GAMEPLAY_AMBIENT)).not.toThrow();
+      expect(mgr.getCurrentMusicKey()).toBeNull();
     });
   });
 
   afterEach(() => {
-    vi.restoreAllMocks();
+    /* Use clearAllMocks instead of restoreAllMocks to preserve the
+     * SynthAudio vi.mock factory across tests. restoreAllMocks would
+     * wipe the mockImplementation, causing subsequent AudioManager
+     * constructors to get a bare function without play methods. */
+    vi.clearAllMocks();
   });
 });

@@ -100,7 +100,10 @@ export class Preload extends Phaser.Scene {
       });
     }
 
-    /* Load audio files. */
+    /* Load audio files (if any are registered in the manifest).
+     * SFX are now generated at runtime via SynthAudio, so the audio
+     * array is typically empty. Real music files can be added back
+     * to the manifest when available. */
     for (const audio of ASSET_MANIFEST.audio) {
       this.load.audio(audio.key, `${baseUrl}/${audio.path}`);
     }

@@ -26,6 +26,7 @@ import type {
   CampaignCompletePayload,
   CompositionSummaryEntry,
   GameOverPayload,
+  BossMinionSummonPayload,
 } from '../types/events';
 import type { ConfigManager } from '../utils/config-manager';
 import type { EnemySystem } from './enemy-system';
@@ -168,6 +169,16 @@ export class WaveSystem extends BaseSystem {
 
     /* Listen for game over to halt all wave activity. */
     this.listen(GAME_EVENTS.GAME_OVER, this.onGameOver as (...args: never[]) => void);
+
+    /* BUG FIX: Listen for boss minion summons so dynamically spawned minions
+     * count toward wave completion. Without this, the wave completion check
+     * only counted enemies from the waves.json group definitions, so boss
+     * minions would be invisible to the totalEnemiesInWave counter and the
+     * wave would complete before all minions were resolved. */
+    this.listen(
+      GAME_EVENTS.BOSS_MINION_SUMMON,
+      this.onBossMinionSummon as (...args: never[]) => void,
+    );
 
     /* BOLT-020: Load endless config from registry (stored by Gameplay scene). */
     this.endlessConfig = (this.scene.registry.get('endlessConfig') as EndlessConfig) ?? null;
@@ -610,6 +621,21 @@ export class WaveSystem extends BaseSystem {
     this.currentState = WaveState.IDLE;
     this.activeGroups = [];
     this.prepTimeRemainingMs = 0;
+  }
+
+  /**
+   * Handles BOSS_MINION_SUMMON event: increments totalEnemiesInWave so
+   * dynamically spawned boss minions count toward wave completion.
+   *
+   * Without this, the wave would see totalSpawned === totalEnemiesInWave
+   * (from the static waves.json counts) before all boss minions were
+   * resolved, causing premature wave completion on boss waves.
+   *
+   * @param payload - Contains the number of minions summoned.
+   */
+  private onBossMinionSummon(payload: BossMinionSummonPayload): void {
+    if (this.currentState !== WaveState.ACTIVE) return;
+    this.totalEnemiesInWave += payload.minionCount;
   }
 
   // ---------------------------------------------------------------------------

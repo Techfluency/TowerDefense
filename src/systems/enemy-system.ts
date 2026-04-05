@@ -225,11 +225,21 @@ export class EnemySystem extends BaseSystem {
     const definition = this.configManager.getEnemy(archetypeId);
     const spawnPoint = this.waypoints[0]!;
 
-    /* Acquire a sprite from the pool. */
+    /* BUG FIX: Add small random offset to prevent enemies from stacking
+     * on top of each other at the spawn point. With fast spawn intervals,
+     * multiple enemies would overlap at the exact same position. Using the
+     * seeded gameplayRng ensures deterministic replay. The +/-4px offset
+     * is small enough to look natural but prevents visual stacking. */
+    const rng = (this.scene.registry as { get?(key: string): unknown })?.get?.('gameplayRng') as
+      { between(min: number, max: number): number } | undefined;
+    const offsetX = rng?.between(-4, 4) ?? 0;
+    const offsetY = rng?.between(-4, 4) ?? 0;
+
+    /* Acquire a sprite from the pool at the offset spawn position. */
     const sprite = this.poolManager.acquireEnemy(
       definition.spriteKey,
-      spawnPoint.worldX,
-      spawnPoint.worldY,
+      spawnPoint.worldX + offsetX,
+      spawnPoint.worldY + offsetY,
     );
 
     if (!sprite) {
