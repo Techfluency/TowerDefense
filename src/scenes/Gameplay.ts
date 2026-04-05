@@ -105,6 +105,12 @@ export class Gameplay extends Phaser.Scene {
       this.registry.set('endlessConfig', endlessConfig);
     }
 
+    /* --- BOLT-024: Compute and store RunBonuses for this run ---
+     * SkillTreeManager lives on the ProgressionManager (stored on registry by Boot).
+     * RunBonuses must be stored before system init() calls, because systems
+     * like EconomySystem read startingCurrencyBonus during init(). */
+    this.computeAndStoreRunBonuses();
+
     /* --- Store references on registry for DebugOverlay access ---
      * The DebugOverlay scene runs in parallel and reads these. */
     this.registry.set('poolManager', this.poolManager);
@@ -272,6 +278,37 @@ export class Gameplay extends Phaser.Scene {
   }
 
   /**
+   * BOLT-024: Computes RunBonuses from the SkillTreeManager and stores
+   * them on the Phaser registry for all game systems to read.
+   *
+   * Must be called before system init() because EconomySystem reads
+   * startingCurrencyBonus during its init(). Also binds the skill tree
+   * config if the manager exists but config hasn't been set yet.
+   */
+  private computeAndStoreRunBonuses(): void {
+    const pm = this.registry.get('progressionManager') as
+      { getSkillTreeManager(): import('../utils/skill-tree-manager').SkillTreeManager } | undefined;
+    if (!pm) return;
+
+    const skillTreeManager = pm.getSkillTreeManager();
+
+    /* Ensure config is bound -- it's loaded in Preload scene from cache. */
+    try {
+      skillTreeManager.getConfig();
+    } catch {
+      /* Config not yet set -- bind it from the Phaser cache. */
+      const skillTreeConfig = this.cache.json.get('config-skill-tree');
+      if (skillTreeConfig) {
+        skillTreeManager.setConfig(skillTreeConfig);
+      }
+    }
+
+    /* Compute and store RunBonuses for this run. */
+    const runBonuses = skillTreeManager.computeRunBonuses();
+    this.registry.set('runBonuses', runBonuses);
+  }
+
+  /**
    * Handles scene shutdown: destroys all systems in reverse order,
    * cleans up pools, and clears registry references.
    */
@@ -311,6 +348,9 @@ export class Gameplay extends Phaser.Scene {
 
     /* Remove endlessConfig registry reference (BOLT-020). */
     this.registry.remove('endlessConfig');
+
+    /* Remove runBonuses registry reference (BOLT-024). */
+    this.registry.remove('runBonuses');
 
     /* Note: 'gameStateManager', 'hudSystem', 'speedMultiplier' are removed
      * by GameStateManager.destroy() and HudSystem.destroy() above. */

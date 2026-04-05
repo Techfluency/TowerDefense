@@ -63,15 +63,14 @@ export class EconomySystem extends BaseSystem {
     /* Set starting currency from config (overrides the 0 from createInitialGameState). */
     this.gameState.currency = this.economyConfig.startingCurrency;
 
-    /* BOLT-021: Apply starting currency bonus from meta-progression unlocks.
-     * Lv5 grants +25, Lv8 grants +50 (stacked = +75 at Lv8+).
-     * ProgressionManager is stored on registry by Boot scene.
+    /* BOLT-024: Apply starting currency bonus from skill tree global upgrades.
+     * RunBonuses are computed at run start and stored on registry by Gameplay.create().
      * Uses optional chaining because registry may not exist in unit test mocks. */
     const registry = this.scene.registry as
       { get?(key: string): unknown } | undefined;
-    const progressionManager = registry?.get?.('progressionManager') as
-      { getStartingCurrencyBonus(): number } | undefined;
-    const currencyBonus = progressionManager?.getStartingCurrencyBonus() ?? 0;
+    const runBonuses = registry?.get?.('runBonuses') as
+      { global: { startingCurrencyBonus: number } } | undefined;
+    const currencyBonus = runBonuses?.global.startingCurrencyBonus ?? 0;
     if (currencyBonus > 0) {
       this.gameState.currency += currencyBonus;
     }
@@ -164,10 +163,15 @@ export class EconomySystem extends BaseSystem {
   private onWaveCompleted(payload: WaveCompletedPayload): void {
     const { waveNumber, earlyStart } = payload;
 
-    /* Wave completion currency bonus: waveBonusBase + (waveBonusPerWave * waveNumber). */
-    const waveCurrencyBonus =
+    /* Wave completion currency bonus: waveBonusBase + (waveBonusPerWave * waveNumber).
+     * BOLT-024: Multiply by skill tree waveIncomeMultiplier from RunBonuses. */
+    let waveCurrencyBonus =
       this.economyConfig.waveBonusBase +
       this.economyConfig.waveBonusPerWave * waveNumber;
+
+    /* Apply wave income multiplier from skill tree global upgrades. */
+    const waveIncomeMultiplier = this.getWaveIncomeMultiplier();
+    waveCurrencyBonus = Math.floor(waveCurrencyBonus * waveIncomeMultiplier);
 
     if (waveCurrencyBonus > 0) {
       this.gameState.currency += waveCurrencyBonus;
@@ -208,6 +212,24 @@ export class EconomySystem extends BaseSystem {
    */
   private onBossDied(_payload: BossDiedPayload): void {
     this.bossKills++;
+  }
+
+  // ---------------------------------------------------------------------------
+  // BOLT-024: Skill Tree Bonus Helpers
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Returns the wave income multiplier from RunBonuses on the Phaser registry.
+   * Defaults to 1.0 (no bonus) if RunBonuses are not available.
+   *
+   * @returns Wave income multiplier (e.g., 1.20 for +20%).
+   */
+  private getWaveIncomeMultiplier(): number {
+    const registry = this.scene.registry as
+      { get?(key: string): unknown } | undefined;
+    const runBonuses = registry?.get?.('runBonuses') as
+      { global: { waveIncomeMultiplier: number } } | undefined;
+    return runBonuses?.global.waveIncomeMultiplier ?? 1.0;
   }
 
   // ---------------------------------------------------------------------------

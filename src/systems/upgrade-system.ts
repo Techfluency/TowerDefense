@@ -717,6 +717,27 @@ export class UpgradeSystem extends BaseSystem {
   }
 
   // ---------------------------------------------------------------------------
+  // BOLT-024: Skill Tree Discount Helper
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Returns the discounted cost of an upgrade after applying the skill tree
+   * per-tower upgradeDiscount multiplier from RunBonuses.
+   *
+   * @param baseCost - Original upgrade cost from tower-upgrades.json.
+   * @param towerType - Tower type ID for RunBonuses key lookup.
+   * @returns Effective cost after discount (rounded up to ensure > 0).
+   */
+  private getDiscountedCost(baseCost: number, towerType: string): number {
+    const registry = this.scene.registry as
+      { get?(key: string): unknown } | undefined;
+    const runBonuses = registry?.get?.('runBonuses') as
+      import('../types/game-types').RunBonuses | undefined;
+    const discountMultiplier = runBonuses?.towerMultipliers[towerType]?.upgradeDiscount ?? 1.0;
+    return Math.ceil(baseCost * discountMultiplier);
+  }
+
+  // ---------------------------------------------------------------------------
   // Upgrade execution
   // ---------------------------------------------------------------------------
 
@@ -735,17 +756,21 @@ export class UpgradeSystem extends BaseSystem {
     const nextTier = upgrades.find(u => u.tier === tower.upgradeLevel + 1 && !u.branch);
     if (!nextTier) return;
 
+    /* BOLT-024: Apply per-tower upgradeDiscount from skill tree RunBonuses.
+     * upgradeDiscount is a multiplier < 1.0 (e.g., 0.85 for -15% cost). */
+    const effectiveCost = this.getDiscountedCost(nextTier.cost, tower.towerType);
+
     /* Deduct currency via EconomySystem (BOLT-008 owns all currency mutations). */
     if (this.economySystem) {
-      const success = this.economySystem.trySpend(nextTier.cost, 'tower_upgrade');
+      const success = this.economySystem.trySpend(effectiveCost, 'tower_upgrade');
       if (!success) return;
-    } else if (this.gameState.currency < nextTier.cost) {
+    } else if (this.gameState.currency < effectiveCost) {
       return;
     }
 
     /* Update tower state. */
     tower.upgradeLevel = nextTier.tier;
-    tower.totalInvested += nextTier.cost;
+    tower.totalInvested += effectiveCost;
 
     /* Adjust currentHp: if maxHp increased, increase currentHp proportionally.
      * If tower was at full HP, set to new maxHp. */
@@ -809,18 +834,21 @@ export class UpgradeSystem extends BaseSystem {
     const branchData = upgrades.find(u => u.tier === 4 && u.branch === branch);
     if (!branchData) return;
 
+    /* BOLT-024: Apply per-tower upgradeDiscount from skill tree RunBonuses. */
+    const effectiveBranchCost = this.getDiscountedCost(branchData.cost, tower.towerType);
+
     /* Deduct currency via EconomySystem. */
     if (this.economySystem) {
-      const success = this.economySystem.trySpend(branchData.cost, 'tower_upgrade');
+      const success = this.economySystem.trySpend(effectiveBranchCost, 'tower_upgrade');
       if (!success) return;
-    } else if (this.gameState.currency < branchData.cost) {
+    } else if (this.gameState.currency < effectiveBranchCost) {
       return;
     }
 
     /* Update tower state: set branch and upgrade to Tier 4. */
     tower.branch = branch;
     tower.upgradeLevel = 4;
-    tower.totalInvested += branchData.cost;
+    tower.totalInvested += effectiveBranchCost;
 
     /* Adjust HP proportionally, same logic as linear upgrade. */
     const oldMaxHp = resolveEffectiveStats(

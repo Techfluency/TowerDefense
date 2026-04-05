@@ -203,13 +203,9 @@ export class TowerPlacementSystem extends BaseSystem {
   private createBuildMenu(): void {
     const allTowers = this.configManager.getAllTowers();
 
-    /* BOLT-021: Filter towers by progression unlock state. */
-    const pm = this.scene.registry.get('progressionManager') as
-      { isTowerUnlocked(id: string): boolean } | undefined;
-    const towers = allTowers.filter(t => {
-      if (t.towerClass === 'utility') return false;
-      return pm ? pm.isTowerUnlocked(t.id) : true;
-    });
+    /* BOLT-024: All towers are always available -- skill tree system
+     * removed tower-gating. Only filter out utility towers. */
+    const towers = allTowers.filter(t => t.towerClass !== 'utility');
 
     /* Bottom bar: spans full width at the bottom of the screen. */
     const gameWidth = Number(this.scene.game.config.width);
@@ -644,6 +640,10 @@ export class TowerPlacementSystem extends BaseSystem {
   /**
    * Commits a tower placement: creates the tower sprite, deducts currency,
    * registers in TowerRegistry, emits TOWER_PLACED, and exits placement mode.
+   *
+   * BOLT-024: Applies skill tree bonuses at tower creation:
+   * - upgradeDiscount to placement cost
+   * - global towerHpMultiplier to initial maxHp
    */
   private commitPlacement(col: number, row: number): void {
     if (!this.selectedTowerDef) return;
@@ -663,14 +663,29 @@ export class TowerPlacementSystem extends BaseSystem {
       this.configManager,
     );
 
+    /* BOLT-024: Read RunBonuses from registry for HP multiplier and upgrade discount.
+     * Uses optional chaining for test environment safety. */
+    const runBonuses = (this.scene.registry as { get?(key: string): unknown })
+      ?.get?.('runBonuses') as import('../types/game-types').RunBonuses | undefined;
+
+    /* Apply global tower HP multiplier to starting maxHp.
+     * This is a one-time application at creation, not per-frame. */
+    const hpMultiplier = runBonuses?.global.towerHpMultiplier ?? 1.0;
+    const effectiveMaxHp = Math.ceil(effectiveStats.maxHp * hpMultiplier);
+
     /* Register in TowerRegistry (also tracks occupancy). */
     const placed = this.towerRegistry.registerTower(
-      def.id, col, row, worldX, worldY, def.cost, towerSprite, effectiveStats.maxHp,
+      def.id, col, row, worldX, worldY, def.cost, towerSprite, effectiveMaxHp,
     );
 
-    /* Deduct currency via EconomySystem (BOLT-008 owns all currency mutations). */
+    /* BOLT-024: Apply per-tower upgradeDiscount to placement cost.
+     * upgradeDiscount is a multiplier < 1.0 (e.g., 0.85 for -15%). */
+    const discountMultiplier = runBonuses?.towerMultipliers[def.id]?.upgradeDiscount ?? 1.0;
+    const effectiveCost = Math.ceil(def.cost * discountMultiplier);
+
+    /* Deduct discounted currency via EconomySystem (BOLT-008 owns all currency mutations). */
     if (this.economySystem) {
-      const success = this.economySystem.trySpend(def.cost, 'tower_placed');
+      const success = this.economySystem.trySpend(effectiveCost, 'tower_placed');
       if (!success) return;
     }
 

@@ -10,6 +10,7 @@
  * - Settings persistence via registry (session-only)
  *
  * BOLT-009 implementation. BOLT-016 adds fade transitions and panel animation.
+ * BOLT-024: Replaces level display with Available XP and Skill Tree button.
  */
 import Phaser from 'phaser';
 import { SCENE_KEYS, GAME_WIDTH, GAME_HEIGHT } from '../config/game-constants';
@@ -106,8 +107,8 @@ export class MainMenu extends Phaser.Scene {
       color: '#666666',
     }).setOrigin(0.5);
 
-    /* --- BOLT-021: Player Level Display --- */
-    this.renderPlayerLevel(GAME_HEIGHT * 0.44);
+    /* --- BOLT-024: Available XP Display (replaces BOLT-021 level display) --- */
+    this.renderAvailableXP(GAME_HEIGHT * 0.44);
 
     /* --- New Game Button --- */
     this.createButton(
@@ -120,9 +121,26 @@ export class MainMenu extends Phaser.Scene {
       () => fadeTransition(this, () => this.scene.start(SCENE_KEYS.GAMEPLAY)),
     );
 
-    /* --- Settings Button --- */
+    /* --- Skill Tree Button (BOLT-024) ---
+     * Navigates to SkillTree scene (implemented in BOLT-025).
+     * Disabled if scene key doesn't exist yet -- graceful degradation. */
     this.createButton(
       GAME_WIDTH / 2, GAME_HEIGHT * 0.55 + 64,
+      200, 40,
+      'Skill Tree',
+      { fontSize: '18px', fontFamily: 'monospace', fontStyle: 'bold', color: '#FFD700' },
+      BTN_MENU_BG, BTN_MENU_HOVER,
+      () => {
+        /* BOLT-025 will register 'SkillTree' scene. Check before switching. */
+        if (this.scene.manager.getScene('SkillTree')) {
+          fadeTransition(this, () => this.scene.start('SkillTree'));
+        }
+      },
+    );
+
+    /* --- Settings Button --- */
+    this.createButton(
+      GAME_WIDTH / 2, GAME_HEIGHT * 0.55 + 128,
       200, 40,
       'Settings',
       { fontSize: '18px', fontFamily: 'monospace', color: '#AAAAAA' },
@@ -139,61 +157,39 @@ export class MainMenu extends Phaser.Scene {
   }
 
   // ---------------------------------------------------------------------------
-  // BOLT-021: Player Level Display
+  // BOLT-024: Available XP Display
   // ---------------------------------------------------------------------------
 
   /**
-   * Renders the player level badge and XP progress bar on the main menu.
-   * Reads from the ProgressionManager on the registry.
+   * Renders the "Available XP" text on the main menu.
+   * Reads from the SkillTreeManager via the ProgressionManager on the registry.
+   * Replaces the old BOLT-021 level/XP-bar display.
    *
-   * @param y - Y position for the level display section.
+   * @param y - Y position for the XP display section.
    */
-  private renderPlayerLevel(y: number): void {
+  private renderAvailableXP(y: number): void {
     const pm = this.registry.get('progressionManager') as ProgressionManager | undefined;
     if (!pm) return;
 
-    const level = pm.getLevel();
-    const fraction = pm.getProgressFraction();
+    const skillTree = pm.getSkillTreeManager();
+    const availableXp = skillTree.getAvailableXp();
+    const totalXpEarned = skillTree.getTotalXpEarned();
     const centerX = GAME_WIDTH / 2;
 
-    /* Level text. */
-    const levelLabel = level >= 10 ? `Level ${level} (MAX)` : `Level ${level}`;
-    this.add.text(centerX, y, levelLabel, {
-      fontSize: '18px',
+    /* Available XP (the spendable balance -- primary display). */
+    this.add.text(centerX, y, `Available XP: ${availableXp}`, {
+      fontSize: '20px',
       fontFamily: 'monospace',
       fontStyle: 'bold',
-      color: '#4A90D9',
+      color: '#FFD700',
     }).setOrigin(0.5);
 
-    /* XP progress bar. */
-    const barWidth = 180;
-    const barHeight = 8;
-    const barX = centerX - barWidth / 2;
-    const barY = y + 20;
-
-    /* Bar background. */
-    const barBg = this.add.graphics();
-    barBg.fillStyle(0x333333, 1);
-    barBg.fillRoundedRect(barX, barY, barWidth, barHeight, 3);
-
-    /* Bar fill. */
-    const fillWidth = barWidth * fraction;
-    if (fillWidth > 0) {
-      const barFill = this.add.graphics();
-      barFill.fillStyle(0x4A90D9, 1);
-      barFill.fillRoundedRect(barX, barY, fillWidth, barHeight, 3);
-    }
-
-    /* XP numbers below bar (only if not max level). */
-    if (level < 10) {
-      const xpInLevel = pm.getXPInCurrentLevel();
-      const xpNeeded = pm.getXPToNextLevel();
-      this.add.text(centerX, barY + barHeight + 4, `${xpInLevel} / ${xpNeeded} XP`, {
-        fontSize: '11px',
-        fontFamily: 'monospace',
-        color: '#666666',
-      }).setOrigin(0.5);
-    }
+    /* Lifetime XP earned (secondary stat). */
+    this.add.text(centerX, y + 26, `Total Earned: ${totalXpEarned}`, {
+      fontSize: '12px',
+      fontFamily: 'monospace',
+      color: '#666666',
+    }).setOrigin(0.5);
   }
 
   // ---------------------------------------------------------------------------

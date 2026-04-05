@@ -1,17 +1,18 @@
 /**
  * Game Over scene -- full results screen with victory/defeat differentiation,
- * run stats, session-best badge, XP bar, level-up notification, and navigation.
+ * run stats, session-best badge, XP earned display, and navigation.
  *
  * Replaces the BOLT-001 stub. Receives extended GameOverData from
  * GameStateManager via scene.start() data parameter.
  *
  * BOLT-009 implementation. BOLT-016 adds fade transitions and stat animation.
- * BOLT-021 adds XP bar, level-up notifications, and meta-progression integration.
+ * BOLT-024: Replaces level-up notification with XP earned + Available XP display.
  */
 import Phaser from 'phaser';
 import { SCENE_KEYS, GAME_WIDTH, GAME_HEIGHT } from '../config/game-constants';
 import { fadeTransition, fadeIn, staggerFadeIn, countUp } from '../ui/ui-animations';
-import type { ProgressionManager, XPResult } from '../utils/progression-manager';
+import type { ProgressionManager } from '../utils/progression-manager';
+import type { XPResult as SkillTreeXPResult } from '../utils/skill-tree-manager';
 
 /** Extended data passed from GameStateManager when transitioning to GameOver. */
 interface GameOverData {
@@ -36,13 +37,7 @@ const BTN_MENU_BG = 0x2A2A4A;
 const BTN_MENU_HOVER = 0x3A3A6A;
 const BTN_CORNER_RADIUS = 6;
 
-/** XP bar dimensions (BOLT-021). */
-const XP_BAR_WIDTH = 300;
-const XP_BAR_HEIGHT = 16;
-const XP_BAR_BG_COLOR = 0x333333;
-const XP_BAR_FILL_COLOR = 0x4A90D9;
-const XP_BAR_LEVELUP_COLOR = 0xFFD700;
-const XP_BAR_CORNER_RADIUS = 4;
+/* XP bar constants removed by BOLT-024 -- replaced by text-only XP display. */
 
 export class GameOver extends Phaser.Scene {
   constructor() {
@@ -82,8 +77,8 @@ export class GameOver extends Phaser.Scene {
     const isNewSessionBest = resolvedData?.isNewSessionBest ?? false;
     const bossKills = resolvedData?.bossKills ?? 0;
 
-    /* BOLT-021: Apply XP from this run before rendering the UI.
-     * The XP result drives the XP bar and level-up notification. */
+    /* BOLT-024: Apply XP from this run via SkillTreeManager.
+     * The XP result drives the XP earned and available XP displays. */
     const xpResult = this.applyRunXP(totalKills, wavesSurvived, bossKills);
 
     /* --- Background --- */
@@ -151,7 +146,7 @@ export class GameOver extends Phaser.Scene {
     /* BOLT-016: Stagger the stat rows appearing. */
     staggerFadeIn(this, statItems, 120, 250);
 
-    /* --- BOLT-021: XP Bar Section --- */
+    /* --- BOLT-024: XP Earned Section (replaces BOLT-021 XP bar) --- */
     if (xpResult) {
       this.renderXPSection(xpResult, GAME_HEIGHT * 0.52);
     }
@@ -168,9 +163,24 @@ export class GameOver extends Phaser.Scene {
       () => fadeTransition(this, () => this.scene.start(SCENE_KEYS.GAMEPLAY)),
     );
 
-    /* --- Main Menu Button --- */
+    /* --- Skill Tree Button (BOLT-024) --- */
     this.createButton(
       GAME_WIDTH / 2, playY + BTN_PLAY_HEIGHT + 16,
+      BTN_MENU_WIDTH, BTN_MENU_HEIGHT,
+      'Skill Tree',
+      { fontSize: '18px', fontFamily: 'monospace', fontStyle: 'bold', color: '#FFD700' },
+      BTN_MENU_BG, BTN_MENU_HOVER,
+      () => {
+        /* BOLT-025 will register 'SkillTree' scene. Check before switching. */
+        if (this.scene.manager.getScene('SkillTree')) {
+          fadeTransition(this, () => this.scene.start('SkillTree'));
+        }
+      },
+    );
+
+    /* --- Main Menu Button --- */
+    this.createButton(
+      GAME_WIDTH / 2, playY + BTN_PLAY_HEIGHT + 16 + BTN_MENU_HEIGHT + 12,
       BTN_MENU_WIDTH, BTN_MENU_HEIGHT,
       'Main Menu',
       { fontSize: '18px', fontFamily: 'monospace', color: '#AAAAAA' },
@@ -181,126 +191,73 @@ export class GameOver extends Phaser.Scene {
   }
 
   // ---------------------------------------------------------------------------
-  // BOLT-021: XP and Progression
+  // BOLT-024: XP and Progression
   // ---------------------------------------------------------------------------
 
   /**
-   * Applies run XP to the progression manager and returns the result.
-   * Returns null if the progression manager is not available on the registry.
+   * Applies run XP to the SkillTreeManager via ProgressionManager.
+   * Returns the SkillTreeManager's XPResult (base XP, boosted XP, available XP).
    *
    * @param totalKills - Enemies killed in the run.
    * @param wavesSurvived - Waves completed in the run.
    * @param bossKills - Boss enemies killed in the run.
-   * @returns XP result or null if progression is unavailable.
+   * @returns Skill tree XP result or null if progression is unavailable.
    */
-  private applyRunXP(totalKills: number, wavesSurvived: number, bossKills: number): XPResult | null {
+  private applyRunXP(
+    totalKills: number,
+    wavesSurvived: number,
+    bossKills: number,
+  ): SkillTreeXPResult | null {
     const pm = this.registry.get('progressionManager') as ProgressionManager | undefined;
     if (!pm) return null;
 
-    return pm.applyRunXP({ totalKills, wavesSurvived, bossKills });
+    /* BOLT-024: Use SkillTreeManager directly for XP application.
+     * applyRunXP applies the global xpMultiplier before adding to totalXpEarned. */
+    const skillTree = pm.getSkillTreeManager();
+    return skillTree.applyRunXP({ totalKills, wavesSurvived, bossKills });
   }
 
   /**
-   * Renders the XP progress section: XP gained text, progress bar, level text,
-   * and level-up notification if the player leveled up.
+   * Renders the XP earned section: XP gained text (with boost breakdown
+   * if xpMultiplier > 1), and the new Available XP balance.
+   * Replaces the old BOLT-021 XP bar and level-up notifications.
    *
-   * @param xpResult - Result from applyRunXP with all progression data.
+   * @param xpResult - Result from SkillTreeManager.applyRunXP().
    * @param y - Y position for the XP section.
    */
-  private renderXPSection(xpResult: XPResult, y: number): void {
+  private renderXPSection(xpResult: SkillTreeXPResult, y: number): void {
     const centerX = GAME_WIDTH / 2;
-    const xpStyle = { fontSize: '16px', fontFamily: 'monospace', color: '#AADDFF' };
 
-    /* XP gained line. */
+    /* XP earned headline. */
     this.add.text(
       centerX, y,
-      `+${xpResult.xpGained} XP`,
-      { fontSize: '20px', fontFamily: 'monospace', fontStyle: 'bold', color: '#4A90D9' },
+      `XP Earned: +${xpResult.xpGained}`,
+      { fontSize: '22px', fontFamily: 'monospace', fontStyle: 'bold', color: '#4A90D9' },
     ).setOrigin(0.5);
 
-    /* Level text. */
-    const levelText = xpResult.newLevel >= 10
-      ? `Level ${xpResult.newLevel} (MAX)`
-      : `Level ${xpResult.newLevel}`;
-    this.add.text(centerX, y + 28, levelText, xpStyle).setOrigin(0.5);
-
-    /* XP progress bar background. */
-    const barX = centerX - XP_BAR_WIDTH / 2;
-    const barY = y + 48;
-    const barBg = this.add.graphics();
-    barBg.fillStyle(XP_BAR_BG_COLOR, 1);
-    barBg.fillRoundedRect(barX, barY, XP_BAR_WIDTH, XP_BAR_HEIGHT, XP_BAR_CORNER_RADIUS);
-
-    /* Determine fill fraction. At max level, bar is full. */
-    const pm = this.registry.get('progressionManager') as ProgressionManager | undefined;
-    const fraction = pm?.getProgressFraction() ?? 0;
-    const didLevelUp = xpResult.newLevel > xpResult.previousLevel;
-
-    /* XP progress bar fill (animated). */
-    const fillColor = didLevelUp ? XP_BAR_LEVELUP_COLOR : XP_BAR_FILL_COLOR;
-    const barFill = this.add.graphics();
-    barFill.fillStyle(fillColor, 1);
-
-    /* Animate the bar filling from 0 to the target fraction. */
-    const fillTarget = { value: 0 };
-    this.tweens.add({
-      targets: fillTarget,
-      value: fraction,
-      duration: 800,
-      delay: 300,
-      ease: 'Sine.easeOut',
-      onUpdate: () => {
-        barFill.clear();
-        barFill.fillStyle(fillColor, 1);
-        const w = Math.max(0, XP_BAR_WIDTH * fillTarget.value);
-        if (w > 0) {
-          barFill.fillRoundedRect(barX, barY, w, XP_BAR_HEIGHT, XP_BAR_CORNER_RADIUS);
-        }
-      },
-    });
-
-    /* XP numbers below the bar. */
-    if (xpResult.xpToNextLevel > 0) {
+    /* Show XP boost breakdown if the multiplier was active.
+     * baseXpGained differs from xpGained when xpMultiplier > 1. */
+    if (xpResult.baseXpGained !== xpResult.xpGained) {
       this.add.text(
-        centerX, barY + XP_BAR_HEIGHT + 6,
-        `${xpResult.xpInCurrentLevel} / ${xpResult.xpToNextLevel}`,
-        { fontSize: '12px', fontFamily: 'monospace', color: '#888888' },
+        centerX, y + 26,
+        `(Base: ${xpResult.baseXpGained} + XP Boost: +${xpResult.xpGained - xpResult.baseXpGained})`,
+        { fontSize: '13px', fontFamily: 'monospace', color: '#88AACC' },
       ).setOrigin(0.5);
     }
 
-    /* --- Level-Up Notification --- */
-    if (didLevelUp && xpResult.newUnlocks.length > 0) {
-      const notifyY = barY + XP_BAR_HEIGHT + 28;
-      for (let i = 0; i < xpResult.newUnlocks.length; i++) {
-        const unlock = xpResult.newUnlocks[i]!;
-        const text = this.add.text(
-          centerX, notifyY + i * 26,
-          `LEVEL UP! ${unlock.name} Unlocked!`,
-          { fontSize: '16px', fontFamily: 'monospace', fontStyle: 'bold', color: '#FFD700' },
-        ).setOrigin(0.5).setAlpha(0);
+    /* Available XP after this run. */
+    this.add.text(
+      centerX, y + 54,
+      `Available XP: ${xpResult.availableXp}`,
+      { fontSize: '18px', fontFamily: 'monospace', fontStyle: 'bold', color: '#FFD700' },
+    ).setOrigin(0.5);
 
-        /* Staggered fade-in for each unlock notification. */
-        this.tweens.add({
-          targets: text,
-          alpha: 1,
-          y: text.y - 5,
-          duration: 400,
-          delay: 1000 + i * 300,
-          ease: 'Sine.easeOut',
-        });
-
-        /* Gentle pulsing after appearing. */
-        this.tweens.add({
-          targets: text,
-          alpha: { from: 0.85, to: 1.0 },
-          duration: 800,
-          delay: 1400 + i * 300,
-          yoyo: true,
-          repeat: -1,
-          ease: 'Sine.easeInOut',
-        });
-      }
-    }
+    /* Total lifetime earned (secondary stat). */
+    this.add.text(
+      centerX, y + 78,
+      `Total Earned: ${xpResult.totalXpEarned}`,
+      { fontSize: '12px', fontFamily: 'monospace', color: '#666666' },
+    ).setOrigin(0.5);
   }
 
   // ---------------------------------------------------------------------------

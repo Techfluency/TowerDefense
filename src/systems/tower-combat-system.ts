@@ -177,10 +177,30 @@ export class TowerCombatSystem extends BaseSystem {
     const towers = this.towerRegistry.getPlacedTowers();
     const activeEnemies = this.enemySystem.getActiveEnemies();
 
+    /* BOLT-024: Read RunBonuses once per frame for stat multipliers and regen.
+     * Uses optional chaining because registry may not have RunBonuses in tests. */
+    const runBonuses = (this.scene.registry as { get?(key: string): unknown })
+      ?.get?.('runBonuses') as import('../types/game-types').RunBonuses | undefined ?? null;
+
+    /* BOLT-024: Tower regen from skill tree global upgrades.
+     * Apply per second, scaled by delta. */
+    const regenPerSec = runBonuses?.global.towerRegenPerSec ?? 0;
+
     for (const tower of towers) {
+      /* BOLT-024: Apply tower regen before targeting (heal even idle towers).
+       * Regen is capped at maxHp resolved from current upgrade tier. */
+      if (regenPerSec > 0 && tower.currentHp > 0) {
+        const hpMultiplier = runBonuses?.global.towerHpMultiplier ?? 1.0;
+        const baseMaxHp = resolveEffectiveStats(tower, this.configManager).maxHp;
+        const maxHp = Math.ceil(baseMaxHp * hpMultiplier);
+        if (tower.currentHp < maxHp) {
+          tower.currentHp = Math.min(maxHp, tower.currentHp + regenPerSec * dt);
+        }
+      }
+
       const def = this.configManager.getTower(tower.towerType);
-      /* Use effective stats from the upgrade tier, not raw definition values. */
-      const stats = resolveEffectiveStats(tower, this.configManager);
+      /* Use effective stats from the upgrade tier with skill tree bonuses. */
+      const stats = resolveEffectiveStats(tower, this.configManager, runBonuses);
       let state = this.combatStates.get(tower.instanceId);
 
       /* Lazily create combat state for newly placed towers. */

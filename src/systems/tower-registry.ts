@@ -186,10 +186,27 @@ export class TowerRegistry extends BaseSystem {
    * @param towerId - The instance ID of the tower.
    * @returns Refund amount in currency, or 0 if tower not found.
    */
+  /**
+   * BOLT-024: Computes the sell refund amount for a tower, including the
+   * skill tree sell refund bonus from RunBonuses.
+   * Formula: totalInvested * (baseRefundRate + sellRefundBonus).
+   *
+   * @param towerId - The instance ID of the tower.
+   * @returns Refund amount in currency, or 0 if tower not found.
+   */
   getRefundAmount(towerId: string): number {
     const tower = this.byId.get(towerId);
     if (!tower) return 0;
-    return Math.floor(tower.totalInvested * SELL_REFUND_RATE);
+
+    /* BOLT-024: Add skill tree sell refund bonus to the base rate.
+     * Uses optional chaining because registry may not exist in test mocks. */
+    const registry = this.scene.registry as
+      { get?(key: string): unknown } | undefined;
+    const runBonuses = registry?.get?.('runBonuses') as
+      { global: { sellRefundBonus: number } } | undefined;
+    const sellRefundBonus = runBonuses?.global.sellRefundBonus ?? 0;
+
+    return Math.floor(tower.totalInvested * (SELL_REFUND_RATE + sellRefundBonus));
   }
 
   /**
