@@ -12,7 +12,7 @@
  * BOLT-009 implementation. BOLT-016 adds fade transitions and panel animation.
  */
 import Phaser from 'phaser';
-import { SCENE_KEYS, GAME_WIDTH, GAME_HEIGHT } from '../config/game-config';
+import { SCENE_KEYS, GAME_WIDTH, GAME_HEIGHT } from '../config/game-constants';
 import type { EnvConfig } from '../config/env';
 import { fadeTransition, fadeIn, scaleIn } from '../ui/ui-animations';
 import type { ProgressionManager } from '../utils/progression-manager';

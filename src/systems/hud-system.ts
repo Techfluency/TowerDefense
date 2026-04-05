@@ -35,7 +35,7 @@ import type {
   CompositionSummaryEntry,
 } from '../types/events';
 import { DEPTH_FLOATING_TEXT, DEPTH_UI, DEPTH_TOOLTIP, DEPTH_OVERLAY } from '../config/depth-layers';
-import { GAME_WIDTH, GAME_HEIGHT } from '../config/game-config';
+import { GAME_WIDTH, GAME_HEIGHT } from '../config/game-constants';
 import type { Enemy } from '../entities/enemy';
 import { EnemyState } from '../entities/enemy';
 import {
@@ -53,7 +53,7 @@ import { NotificationToast } from '../ui/notification-toast';
 /** HUD bar dimensions. */
 const HUD_BAR_HEIGHT = 40;
 const HUD_BAR_BG_COLOR = 0x0D0D1A;
-const HUD_BAR_BG_ALPHA = 0.85;
+const HUD_BAR_BG_ALPHA = 1.0;
 const HUD_BAR_BORDER_COLOR = 0x4A4A6A;
 const HUD_PADDING_X = 12;
 

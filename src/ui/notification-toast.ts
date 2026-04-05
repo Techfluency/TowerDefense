@@ -12,7 +12,7 @@
  */
 import Phaser from 'phaser';
 import { DEPTH_OVERLAY } from '../config/depth-layers';
-import { GAME_WIDTH } from '../config/game-config';
+import { GAME_WIDTH } from '../config/game-constants';
 import {
   TOAST_SLIDE_MS,
   TOAST_DISPLAY_MS,

@@ -16,7 +16,7 @@
  * - No global singletons. All state flows through GameState or events.
  */
 import Phaser from 'phaser';
-import { SCENE_KEYS } from '../config/game-config';
+import { SCENE_KEYS } from '../config/game-constants';
 import type { GameState } from '../types/game-types';
 import type { EnvConfig } from '../config/env';
 import { ConfigManager } from '../utils/config-manager';

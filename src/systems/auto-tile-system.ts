@@ -94,6 +94,8 @@ function djb2Hash(str: string): number {
     // hash * 33 + char
     hash = ((hash << 5) + hash + str.charCodeAt(i)) | 0;
   }
+  // Ensure positive result (bitwise OR produces signed 32-bit)
+  return hash < 0 ? -hash : hash;
   // Ensure positive by unsigned right shift
   return hash >>> 0;
 }
@@ -115,7 +117,11 @@ export function seededVariant(
   row: number,
   variantCount: number,
 ): number {
-  const cellSeed = `${seed}:${col},${row}`;
+  // Mix coordinates with primes to break diagonal/linear patterns.
+  // Simple string concat of col,row creates correlated hashes for neighbors.
+  const mixedCol = col * 374761;
+  const mixedRow = row * 668265;
+  const cellSeed = `${seed}:${mixedCol ^ mixedRow}:${col}x${row}`;
   return (djb2Hash(cellSeed) % variantCount) + 1;
 }
 

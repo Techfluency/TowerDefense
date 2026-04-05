@@ -9,7 +9,7 @@
  * BOLT-021 adds XP bar, level-up notifications, and meta-progression integration.
  */
 import Phaser from 'phaser';
-import { SCENE_KEYS, GAME_WIDTH, GAME_HEIGHT } from '../config/game-config';
+import { SCENE_KEYS, GAME_WIDTH, GAME_HEIGHT } from '../config/game-constants';
 import { fadeTransition, fadeIn, staggerFadeIn, countUp } from '../ui/ui-animations';
 import type { ProgressionManager, XPResult } from '../utils/progression-manager';
 

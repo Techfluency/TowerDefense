@@ -29,7 +29,7 @@ import type {
   GamePausedPayload,
 } from '../types/events';
 import { DEPTH_OVERLAY } from '../config/depth-layers';
-import { SCENE_KEYS, GAME_WIDTH, GAME_HEIGHT } from '../config/game-config';
+import { SCENE_KEYS, GAME_WIDTH, GAME_HEIGHT } from '../config/game-constants';
 
 // ---------------------------------------------------------------------------
 // Constants

@@ -12,7 +12,7 @@
  * scene can display a loading bar while heavy assets are being fetched.
  */
 import Phaser from 'phaser';
-import { SCENE_KEYS } from '../config/game-config';
+import { SCENE_KEYS } from '../config/game-constants';
 import { loadEnvConfig } from '../config/env';
 import type { EnvConfig } from '../config/env';
 import { ProgressionManager } from '../utils/progression-manager';

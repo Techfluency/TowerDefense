@@ -25,24 +25,11 @@ import { GameOver } from '../scenes/GameOver';
 import { DebugOverlay } from '../scenes/DebugOverlay';
 
 /**
- * Scene keys used throughout the game for scene transitions.
- * All scene starts/switches must use these constants, never raw strings.
+ * Import constants from game-constants.ts (breaks circular dependency).
+ * Re-exported for backward compatibility — new code should import from game-constants.ts directly.
  */
-export const SCENE_KEYS = {
-  BOOT: 'Boot',
-  PRELOAD: 'Preload',
-  MAIN_MENU: 'MainMenu',
-  GAMEPLAY: 'Gameplay',
-  GAME_OVER: 'GameOver',
-  DEBUG_OVERLAY: 'DebugOverlay',
-} as const;
-
-/**
- * Base game resolution. Systems that need to know the canvas size
- * should reference these constants rather than querying the DOM.
- */
-export const GAME_WIDTH = 1280;
-export const GAME_HEIGHT = 720;
+import { SCENE_KEYS, GAME_WIDTH, GAME_HEIGHT } from './game-constants';
+export { SCENE_KEYS, GAME_WIDTH, GAME_HEIGHT };
 
 /**
  * Creates the Phaser game configuration.

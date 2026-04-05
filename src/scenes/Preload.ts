@@ -19,7 +19,7 @@
  * snapping to discrete progress values.
  */
 import Phaser from 'phaser';
-import { SCENE_KEYS, GAME_WIDTH, GAME_HEIGHT } from '../config/game-config';
+import { SCENE_KEYS, GAME_WIDTH, GAME_HEIGHT } from '../config/game-constants';
 import { ASSET_MANIFEST } from '../config/asset-manifest';
 import type { EnvConfig } from '../config/env';
 import { LOADING_BAR_TWEEN_MS } from '../ui/ui-animations';

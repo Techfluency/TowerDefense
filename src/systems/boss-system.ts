@@ -34,7 +34,7 @@ import type { EnemySystem } from './enemy-system';
 import type { Enemy } from '../entities/enemy';
 import type { VFXManager } from '../vfx/vfx-manager';
 import { DEPTH_UI, DEPTH_OVERLAY } from '../config/depth-layers';
-import { GAME_WIDTH, GAME_HEIGHT } from '../config/game-config';
+import { GAME_WIDTH, GAME_HEIGHT } from '../config/game-constants';
 import {
   BOSS_HP_BAR_WIDTH,
   BOSS_HP_BAR_HEIGHT,
