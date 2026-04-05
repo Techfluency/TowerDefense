@@ -171,9 +171,11 @@ export class GameOver extends Phaser.Scene {
       { fontSize: '18px', fontFamily: 'monospace', fontStyle: 'bold', color: '#FFD700' },
       BTN_MENU_BG, BTN_MENU_HOVER,
       () => {
-        /* BOLT-025 will register 'SkillTree' scene. Check before switching. */
+        /* BOLT-025: Navigate to SkillTree scene with return-to-GameOver data. */
         if (this.scene.manager.getScene('SkillTree')) {
-          fadeTransition(this, () => this.scene.start('SkillTree'));
+          fadeTransition(this, () => this.scene.start('SkillTree', {
+            returnScene: SCENE_KEYS.GAME_OVER,
+          }));
         }
       },
     );

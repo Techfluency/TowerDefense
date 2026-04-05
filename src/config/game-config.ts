@@ -23,6 +23,8 @@ import { MainMenu } from '../scenes/MainMenu';
 import { Gameplay } from '../scenes/Gameplay';
 import { GameOver } from '../scenes/GameOver';
 import { DebugOverlay } from '../scenes/DebugOverlay';
+/** BOLT-025: Skill tree upgrade scene, navigable from MainMenu and GameOver. */
+import { SkillTree } from '../scenes/SkillTree';
 
 /**
  * Import constants from game-constants.ts (breaks circular dependency).
@@ -66,7 +68,7 @@ export function createGameConfig(): Phaser.Types.Core.GameConfig {
      * in the array automatically. Boot runs first to load env config
      * and minimal assets needed for the loading screen.
      */
-    scene: [Boot, Preload, MainMenu, Gameplay, GameOver, DebugOverlay],
+    scene: [Boot, Preload, MainMenu, Gameplay, GameOver, DebugOverlay, SkillTree],
 
     /**
      * Smooth scaling, not pixel art. The PRD calls for a "premium" visual

@@ -28,4 +28,6 @@ export const SCENE_KEYS = {
   GAMEPLAY: 'Gameplay',
   GAME_OVER: 'GameOver',
   DEBUG_OVERLAY: 'DebugOverlay',
+  /** BOLT-025: Skill tree upgrade screen, navigable from MainMenu and GameOver. */
+  SKILL_TREE: 'SkillTree',
 } as const;
