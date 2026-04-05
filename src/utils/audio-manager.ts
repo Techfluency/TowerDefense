@@ -93,8 +93,8 @@ export class AudioManager {
   /** Currently playing background music key (null if none). */
   private currentMusicKey: string | null = null;
 
-  /** Phaser sound manager for playing loaded MP3/OGG files. */
-  private soundManager: Phaser.Sound.BaseSoundManager | null = null;
+  /** Phaser sound manager reference (unused — audio checked via scene.cache.audio). */
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
 
   /**
    * Creates the AudioManager, initializes the SynthAudio engine,
@@ -104,7 +104,7 @@ export class AudioManager {
    */
   constructor(scene: Phaser.Scene) {
     this.scene = scene;
-    this.soundManager = scene.sound ?? null;
+    /* Sound manager ref not needed — audio checked via scene.cache.audio. */
 
     /* Read initial volume from registry settings (set by MainMenu). */
     const settings = this.getSettings();
@@ -140,10 +140,12 @@ export class AudioManager {
     const perSfxMult = SFX_VOLUME_MULTIPLIERS[key] ?? 1.0;
     const effectiveVolume = this.sfxVolume * perSfxMult;
 
-    /* Try Phaser-loaded audio first (real MP3/OGG files). */
-    if (this.soundManager && this.soundManager.get(key)) {
+    /* Try Phaser-loaded audio first (real MP3/OGG files).
+     * Check the scene's audio cache for the key — if loaded during Preload,
+     * the sound data will be in this.scene.cache.audio. */
+    if (this.scene?.cache?.audio?.exists(key)) {
       try {
-        this.soundManager.play(key, { volume: effectiveVolume });
+        this.scene.sound.play(key, { volume: effectiveVolume });
         this.lastPlayTime.set(key, Date.now());
         return true;
       } catch {
