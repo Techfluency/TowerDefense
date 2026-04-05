@@ -190,6 +190,8 @@ export const ASSET_MANIFEST: AssetManifest = {
     { key: 'config-economy', path: '/data/economy.json' },
     /* BOLT-020: Endless mode scaling config. */
     { key: 'config-endless', path: '/data/endless-config.json' },
+    /* BOLT-023: Skill tree upgrade definitions. */
+    { key: 'config-skill-tree', path: '/data/skill-tree.json' },
   ],
 
   tilemaps: [

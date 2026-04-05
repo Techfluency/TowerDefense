@@ -1,0 +1,205 @@
+{
+  "towerStats": {
+    "costs": [25, 50, 100, 175, 250],
+    "bonusPerTier": {
+      "damage": [0.05, 0.10, 0.15, 0.20, 0.25],
+      "fireRate": [0.05, 0.10, 0.15, 0.20, 0.25],
+      "range": [0.05, 0.08, 0.12, 0.16, 0.20],
+      "upgradeDiscount": [0.05, 0.10, 0.15, 0.20, 0.25]
+    }
+  },
+  "capstones": [
+    {
+      "id": "ranged_steady_aim",
+      "towerId": "ranged",
+      "name": "Steady Aim",
+      "description": "+15% damage to first enemy hit after switching targets",
+      "cost": 150,
+      "tier": "mid",
+      "prerequisites": [
+        { "stat": "damage", "minTier": 2 },
+        { "stat": "fireRate", "minTier": 2 },
+        { "stat": "range", "minTier": 2 },
+        { "stat": "upgradeDiscount", "minTier": 2 }
+      ],
+      "requiredCount": 2,
+      "effectKey": "steady_aim",
+      "effectParams": { "damageBonus": 0.15 }
+    },
+    {
+      "id": "ranged_barrage",
+      "towerId": "ranged",
+      "name": "Barrage",
+      "description": "Every 5th shot fires 2 arrows instead of 1",
+      "cost": 400,
+      "tier": "mastery",
+      "prerequisites": [
+        { "stat": "damage", "minTier": 4 },
+        { "stat": "fireRate", "minTier": 4 },
+        { "stat": "range", "minTier": 4 },
+        { "stat": "upgradeDiscount", "minTier": 4 }
+      ],
+      "requiredCount": 3,
+      "effectKey": "barrage",
+      "effectParams": { "shotsPerCycle": 5, "extraProjectiles": 1 }
+    },
+    {
+      "id": "focused_spotter",
+      "towerId": "focused",
+      "name": "Spotter",
+      "description": "Reveals enemy HP bars within range (normally hidden until hit)",
+      "cost": 150,
+      "tier": "mid",
+      "prerequisites": [
+        { "stat": "damage", "minTier": 2 },
+        { "stat": "fireRate", "minTier": 2 },
+        { "stat": "range", "minTier": 2 },
+        { "stat": "upgradeDiscount", "minTier": 2 }
+      ],
+      "requiredCount": 2,
+      "effectKey": "spotter",
+      "effectParams": {}
+    },
+    {
+      "id": "focused_headshot",
+      "towerId": "focused",
+      "name": "Headshot",
+      "description": "10% chance to deal 3x damage on any hit",
+      "cost": 400,
+      "tier": "mastery",
+      "prerequisites": [
+        { "stat": "damage", "minTier": 4 },
+        { "stat": "fireRate", "minTier": 4 },
+        { "stat": "range", "minTier": 4 },
+        { "stat": "upgradeDiscount", "minTier": 4 }
+      ],
+      "requiredCount": 3,
+      "effectKey": "headshot",
+      "effectParams": { "chance": 0.10, "multiplier": 3.0 }
+    },
+    {
+      "id": "broadcast_tremor",
+      "towerId": "broadcast",
+      "name": "Tremor",
+      "description": "Enemies in range move 5% slower (passive, always active)",
+      "cost": 150,
+      "tier": "mid",
+      "prerequisites": [
+        { "stat": "damage", "minTier": 2 },
+        { "stat": "fireRate", "minTier": 2 },
+        { "stat": "range", "minTier": 2 },
+        { "stat": "upgradeDiscount", "minTier": 2 }
+      ],
+      "requiredCount": 2,
+      "effectKey": "tremor",
+      "effectParams": { "slowFactor": 0.05 }
+    },
+    {
+      "id": "broadcast_aftershock",
+      "towerId": "broadcast",
+      "name": "Aftershock",
+      "description": "Each blast leaves a damage zone for 1 second dealing 25% of blast damage",
+      "cost": 400,
+      "tier": "mastery",
+      "prerequisites": [
+        { "stat": "damage", "minTier": 4 },
+        { "stat": "fireRate", "minTier": 4 },
+        { "stat": "range", "minTier": 4 },
+        { "stat": "upgradeDiscount", "minTier": 4 }
+      ],
+      "requiredCount": 3,
+      "effectKey": "aftershock",
+      "effectParams": { "durationSec": 1.0, "damageFraction": 0.25 }
+    },
+    {
+      "id": "antiair_lock_on",
+      "towerId": "antiair",
+      "name": "Lock-On",
+      "description": "Missiles track 20% faster, less likely to miss fast targets",
+      "cost": 150,
+      "tier": "mid",
+      "prerequisites": [
+        { "stat": "damage", "minTier": 2 },
+        { "stat": "fireRate", "minTier": 2 },
+        { "stat": "range", "minTier": 2 },
+        { "stat": "upgradeDiscount", "minTier": 2 }
+      ],
+      "requiredCount": 2,
+      "effectKey": "lock_on",
+      "effectParams": { "trackingSpeedBonus": 0.20 }
+    },
+    {
+      "id": "antiair_flak_field",
+      "towerId": "antiair",
+      "name": "Flak Field",
+      "description": "Missiles explode in a small AoE on impact, hitting nearby enemies for 30% damage",
+      "cost": 400,
+      "tier": "mastery",
+      "prerequisites": [
+        { "stat": "damage", "minTier": 4 },
+        { "stat": "fireRate", "minTier": 4 },
+        { "stat": "range", "minTier": 4 },
+        { "stat": "upgradeDiscount", "minTier": 4 }
+      ],
+      "requiredCount": 3,
+      "effectKey": "flak_field",
+      "effectParams": { "aoeDamageFraction": 0.30 }
+    }
+  ],
+  "globalUpgrades": [
+    {
+      "id": "tower_hp",
+      "name": "Tower HP",
+      "description": "Increases tower maximum hit points",
+      "costs": [50, 125, 250],
+      "bonusPerTier": [0.10, 0.20, 0.35],
+      "bonusType": "percentage",
+      "appliesTo": "towerHp"
+    },
+    {
+      "id": "tower_regen",
+      "name": "Tower Regen",
+      "description": "Towers regenerate hit points over time",
+      "costs": [50, 125, 250],
+      "bonusPerTier": [1, 2, 4],
+      "bonusType": "flat",
+      "appliesTo": "towerRegen"
+    },
+    {
+      "id": "start_currency",
+      "name": "Starting Currency",
+      "description": "Start each run with bonus currency",
+      "costs": [50, 125, 250],
+      "bonusPerTier": [15, 35, 60],
+      "bonusType": "flat",
+      "appliesTo": "startCurrency"
+    },
+    {
+      "id": "wave_income",
+      "name": "Wave Income",
+      "description": "Increases wave completion currency bonus",
+      "costs": [50, 125, 250],
+      "bonusPerTier": [0.10, 0.20, 0.30],
+      "bonusType": "percentage",
+      "appliesTo": "waveIncome"
+    },
+    {
+      "id": "xp_boost",
+      "name": "XP Boost",
+      "description": "Earn more XP from runs",
+      "costs": [50, 125, 250],
+      "bonusPerTier": [0.10, 0.20, 0.35],
+      "bonusType": "percentage",
+      "appliesTo": "xpBoost"
+    },
+    {
+      "id": "sell_refund",
+      "name": "Sell Refund",
+      "description": "Increases refund when selling towers",
+      "costs": [50, 125, 250],
+      "bonusPerTier": [0.05, 0.10, 0.15],
+      "bonusType": "percentage",
+      "appliesTo": "sellRefund"
+    }
+  ]
+}

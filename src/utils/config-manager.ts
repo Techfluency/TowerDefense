@@ -18,6 +18,7 @@ import type {
   MapConfigDefinition,
   TowerUpgradeTier,
   EconomyConfig,
+  SkillTreeConfig,
 } from '../types/game-types';
 
 /** Cache keys matching what the Preload scene uses when loading JSON files. */
@@ -29,6 +30,8 @@ const CACHE_KEYS = {
   MAP: 'config-map',
   TOWER_UPGRADES: 'config-tower-upgrades',
   ECONOMY: 'config-economy',
+  /** BOLT-023: Skill tree upgrade definitions. */
+  SKILL_TREE: 'config-skill-tree',
 } as const;
 
 export class ConfigManager {
@@ -52,6 +55,9 @@ export class ConfigManager {
 
   /** Economy balance parameters (single object, not an array). */
   private readonly economyConfig: EconomyConfig;
+
+  /** BOLT-023: Skill tree config (costs, bonuses, capstones, globals). */
+  private readonly skillTreeConfig: SkillTreeConfig;
 
   /**
    * Reads all config data from the Phaser cache. Call this after the
@@ -79,6 +85,10 @@ export class ConfigManager {
     );
     this.economyConfig = this.loadObjectFromCache<EconomyConfig>(
       scene, CACHE_KEYS.ECONOMY, 'economy.json',
+    );
+    /* BOLT-023: Load skill tree config. */
+    this.skillTreeConfig = this.loadObjectFromCache<SkillTreeConfig>(
+      scene, CACHE_KEYS.SKILL_TREE, 'skill-tree.json',
     );
   }
 
@@ -190,6 +200,17 @@ export class ConfigManager {
    */
   getEconomy(): EconomyConfig {
     return this.economyConfig;
+  }
+
+  /**
+   * Returns the skill tree configuration with costs, bonuses,
+   * capstone definitions, and global upgrade definitions.
+   * Loaded from skill-tree.json. BOLT-023.
+   *
+   * @returns The skill tree config object.
+   */
+  getSkillTree(): SkillTreeConfig {
+    return this.skillTreeConfig;
   }
 
   /**

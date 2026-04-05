@@ -676,3 +676,177 @@ export interface StatusEffect {
   /** Instance ID of the tower that applied this effect. For damage attribution. */
   sourceTowerId: string;
 }
+
+// ---------------------------------------------------------------------------
+// Skill Tree Data Model (BOLT-023)
+// ---------------------------------------------------------------------------
+
+/**
+ * The four tower IDs used as keys in skill tree maps.
+ * Matches TowerDefinition.id values from towers.json.
+ * BOLT-023.
+ */
+export type SkillTreeTowerId = 'ranged' | 'focused' | 'broadcast' | 'antiair';
+
+/**
+ * The four upgradeable stats on each tower in the skill tree.
+ * Each stat has 5 tiers (0 = unpurchased, 1-5 = purchased tier).
+ * BOLT-023.
+ */
+export type TowerStatName = 'damage' | 'fireRate' | 'range' | 'upgradeDiscount';
+
+/**
+ * Per-tower upgrade state within the skill tree.
+ * Tracks the current purchased tier for each stat (0-5) and
+ * whether each capstone has been unlocked.
+ * BOLT-023.
+ */
+export interface TowerUpgradeState {
+  /** Current tier for damage stat (0 = not purchased, 1-5 = purchased tier). */
+  damage: number;
+  /** Current tier for fire rate stat (0 = not purchased, 1-5 = purchased tier). */
+  fireRate: number;
+  /** Current tier for range stat (0 = not purchased, 1-5 = purchased tier). */
+  range: number;
+  /** Current tier for upgrade discount stat (0 = not purchased, 1-5 = purchased tier). */
+  upgradeDiscount: number;
+  /** Whether the mid-tier capstone (requires 2 stats at Tier 2) has been purchased. */
+  midCapstone: boolean;
+  /** Whether the mastery capstone (requires 3 stats at Tier 4) has been purchased. */
+  masteryCapstone: boolean;
+}
+
+/**
+ * Player's persistent skill tree profile, stored in localStorage.
+ * Replaces the old PlayerProfile from BOLT-021's level system.
+ * Available XP = totalXpEarned - totalXpSpent.
+ * BOLT-023.
+ */
+export interface SkillTreeProfile {
+  /** Total XP earned across all runs (lifetime). Never decreases. */
+  totalXpEarned: number;
+  /** Total XP spent on skill tree upgrades. */
+  totalXpSpent: number;
+  /** Per-tower upgrade state. Key = tower ID (ranged, focused, broadcast, antiair). */
+  towerUpgrades: Record<string, TowerUpgradeState>;
+  /** Global upgrade state. Key = global upgrade ID, value = current tier (0 = not purchased). */
+  globalUpgrades: Record<string, number>;
+}
+
+/**
+ * Computed bonuses applied at the start of each run based on the
+ * player's current skill tree profile. Stored on the Phaser registry
+ * so game systems can read bonuses without coupling to the manager.
+ * BOLT-023 defines the interface; BOLT-024 computes and stores it.
+ */
+export interface RunBonuses {
+  /** Per-tower stat multipliers. Key = tower ID. */
+  towerMultipliers: Record<string, {
+    /** Damage multiplier (e.g., 1.30 for +30%). */
+    damage: number;
+    /** Fire rate multiplier (e.g., 1.25 for +25%). */
+    fireRate: number;
+    /** Range multiplier (e.g., 1.20 for +20%). */
+    range: number;
+    /** Upgrade discount multiplier (e.g., 0.85 for -15% cost). */
+    upgradeDiscount: number;
+  }>;
+  /** Per-tower active capstone effect keys. Key = tower ID. */
+  towerCapstones: Record<string, string[]>;
+  /** Global bonuses computed from the global upgrade tree. */
+  global: {
+    /** Tower HP multiplier (e.g., 1.30 for +30%). */
+    towerHpMultiplier: number;
+    /** Tower HP regen per second (flat value, 0 = no regen). */
+    towerRegenPerSec: number;
+    /** Bonus starting currency (flat value added to base). */
+    startingCurrencyBonus: number;
+    /** Wave income multiplier (e.g., 1.20 for +20%). */
+    waveIncomeMultiplier: number;
+    /** XP earned multiplier (e.g., 1.20 for +20%). */
+    xpMultiplier: number;
+    /** Sell refund rate bonus (e.g., 0.10 for +10%). */
+    sellRefundBonus: number;
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Skill Tree Config Types (BOLT-023)
+// ---------------------------------------------------------------------------
+
+/**
+ * Definition of a capstone node in the per-tower skill tree.
+ * Loaded from skill-tree.json. Capstones provide unique passive
+ * abilities and require multiple stat tiers as prerequisites.
+ * BOLT-023.
+ */
+export interface CapstoneDefinition {
+  /** Unique identifier (e.g., "ranged_steady_aim"). */
+  id: string;
+  /** Which tower this capstone belongs to. */
+  towerId: string;
+  /** Display name shown in the skill tree UI. */
+  name: string;
+  /** Description of the capstone's effect for tooltips. */
+  description: string;
+  /** XP cost to purchase this capstone. */
+  cost: number;
+  /** Whether this is a mid-tier or mastery capstone. */
+  tier: 'mid' | 'mastery';
+  /** Stat prerequisites. Each entry requires a stat at a minimum tier. */
+  prerequisites: { stat: string; minTier: number }[];
+  /** How many prerequisites must be met (2 for mid, 3 for mastery). */
+  requiredCount: number;
+  /** Effect key dispatched to the combat system (e.g., "steady_aim"). */
+  effectKey: string;
+  /** Effect parameters for the combat system handler. */
+  effectParams: Record<string, number>;
+}
+
+/**
+ * Definition of a global upgrade in the skill tree.
+ * Loaded from skill-tree.json. Global upgrades affect all towers
+ * and run economy with 3 tiers each.
+ * BOLT-023.
+ */
+export interface GlobalUpgradeDefinition {
+  /** Unique identifier (e.g., "tower_hp"). */
+  id: string;
+  /** Display name shown in the skill tree UI. */
+  name: string;
+  /** Description of the upgrade for tooltips. */
+  description: string;
+  /** XP cost per tier [Tier 1, Tier 2, Tier 3]. */
+  costs: number[];
+  /** Bonus value per tier [Tier 1, Tier 2, Tier 3]. Cumulative. */
+  bonusPerTier: number[];
+  /** Whether bonuses are percentage multipliers or flat values. */
+  bonusType: 'percentage' | 'flat';
+  /** Which game system this bonus applies to (e.g., "towerHp", "startCurrency"). */
+  appliesTo: string;
+}
+
+/**
+ * Top-level skill tree configuration loaded from skill-tree.json.
+ * Defines all costs, bonuses, capstones, and global upgrades.
+ * Parsed by ConfigManager and consumed by SkillTreeManager.
+ * BOLT-023.
+ */
+export interface SkillTreeConfig {
+  /** Per-tower stat upgrade costs and bonus values. */
+  towerStats: {
+    /** XP cost per tier [Tier 1 through Tier 5]. */
+    costs: number[];
+    /** Bonus percentage per tier per stat. */
+    bonusPerTier: {
+      damage: number[];
+      fireRate: number[];
+      range: number[];
+      upgradeDiscount: number[];
+    };
+  };
+  /** All 8 capstone definitions (2 per tower). */
+  capstones: CapstoneDefinition[];
+  /** All 6 global upgrade definitions. */
+  globalUpgrades: GlobalUpgradeDefinition[];
+}

@@ -47,11 +47,15 @@ export class Boot extends Phaser.Scene {
       this.scene.launch(SCENE_KEYS.DEBUG_OVERLAY);
     }
 
-    /* BOLT-021: Initialize the meta-progression manager and store on registry.
-     * Created in Boot so it's available before any scene needs unlock data.
-     * Loads player profile from localStorage (or creates a fresh one). */
+    /* BOLT-021/BOLT-023: Initialize progression manager and store on registry.
+     * ProgressionManager now wraps SkillTreeManager internally. Created in Boot
+     * so it's available before any scene needs progression data.
+     * SkillTreeManager handles migration from the old level/XP format. */
     const progressionManager = new ProgressionManager();
     this.registry.set('progressionManager', progressionManager);
+    /* BOLT-023: Also store the SkillTreeManager directly for scenes that
+     * need skill tree functionality (SkillTree UI, bonus computation). */
+    this.registry.set('skillTreeManager', progressionManager.getSkillTreeManager());
 
     /* Transition to the Preload scene, which loads all game assets. */
     this.scene.start(SCENE_KEYS.PRELOAD);
