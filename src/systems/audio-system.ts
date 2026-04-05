@@ -103,8 +103,8 @@ export class AudioSystem extends BaseSystem {
     /* Economy events. */
     this.listen(GAME_EVENTS.CURRENCY_CHANGED, this.onCurrencyChanged as (...args: never[]) => void);
 
-    /* Start gameplay background music. */
-    this.audioManager.playMusic(MUSIC_KEYS.GAMEPLAY_AMBIENT);
+    /* Start gameplay background music on first wave start (not immediately —
+     * gives the prep phase a quieter feel before battle begins). */
   }
 
   /**
@@ -182,21 +182,27 @@ export class AudioSystem extends BaseSystem {
   }
 
   /**
-   * WAVE_STARTED -- alert horn/fanfare to signal new wave.
+   * WAVE_STARTED -- alert horn and start/resume battle music.
+   * Music starts fresh each wave so the intensity resets.
    */
   private onWaveStarted(_payload: WaveStartedPayload): void {
     this.audioManager.playSfx(SFX_KEYS.WAVE_STARTED);
+    /* Resume or start battle music when a wave begins. */
+    this.audioManager.playMusic(MUSIC_KEYS.GAMEPLAY_AMBIENT);
   }
 
   /**
-   * WAVE_COMPLETED -- chime to signal wave cleared.
+   * WAVE_COMPLETED -- chime and pause battle music during prep phase.
+   * Creates a quieter atmosphere between waves for strategic thinking.
    */
   private onWaveCompleted(_payload: WaveCompletedPayload): void {
     this.audioManager.playSfx(SFX_KEYS.WAVE_COMPLETED);
+    /* Pause music between rounds for a calmer prep phase. */
+    this.audioManager.stopMusic();
   }
 
   /**
-   * GAME_OVER -- play victory or defeat stinger, then stop music.
+   * GAME_OVER -- stop music, then play victory or defeat stinger.
    */
   private onGameOver(payload: GameOverPayload): void {
     this.audioManager.stopMusic();

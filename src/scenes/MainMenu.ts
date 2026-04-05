@@ -85,6 +85,26 @@ export class MainMenu extends Phaser.Scene {
     /* BOLT-016: Fade in from black on scene entry. */
     fadeIn(this);
 
+    /* Play menu theme music after first user interaction (browser autoplay policy).
+     * Browsers require a user gesture before audio can play. We start on first click. */
+    if (this.cache?.audio?.exists('music-menu-theme')) {
+      this.sound.stopAll();
+      const startMenuMusic = () => {
+        if (this.cache?.audio?.exists('music-menu-theme')) {
+          try {
+            this.sound.play('music-menu-theme', { loop: true, volume: 0.4 });
+          } catch { /* Graceful degradation */ }
+        }
+      };
+      /* Try immediately — works if audio context already unlocked from previous scene. */
+      try {
+        this.sound.play('music-menu-theme', { loop: true, volume: 0.4 });
+      } catch {
+        /* Deferred: play on first click if autoplay was blocked. */
+        this.input.once('pointerdown', startMenuMusic);
+      }
+    }
+
     /* --- Title --- */
     this.add.text(GAME_WIDTH / 2, GAME_HEIGHT * 0.25, 'Random Gen', {
       fontSize: '52px',

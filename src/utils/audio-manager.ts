@@ -114,6 +114,18 @@ export class AudioManager {
     /* Initialize the synthesizer with registry access for volume sync. */
     this.synth = new SynthAudio(scene.registry);
     this.synth.setVolume(this.sfxVolume);
+
+    /* Unlock Phaser audio context on first user interaction.
+     * Browsers block audio until a user gesture occurs. Phaser handles
+     * this internally but we ensure it by resuming the context explicitly. */
+    if (scene.sound && 'context' in scene.sound) {
+      const webAudioMgr = scene.sound as Phaser.Sound.WebAudioSoundManager;
+      if (webAudioMgr.context?.state === 'suspended') {
+        scene.input.once('pointerdown', () => {
+          webAudioMgr.context?.resume();
+        });
+      }
+    }
   }
 
   // -------------------------------------------------------------------------
@@ -182,8 +194,14 @@ export class AudioManager {
    * @param key - The music asset key.
    */
   playMusic(key: MusicKey): void {
-    if (this.currentMusicKey === key) return;
+    /* Allow re-starting the same track (e.g., after stopMusic between waves). */
     if (!this.scene.sound || !this.scene.cache?.audio?.exists(key)) return;
+
+    /* If this exact track is already playing, don't restart it. */
+    if (this.currentMusicKey === key) {
+      const existing = this.scene.sound.get(key);
+      if (existing && (existing as Phaser.Sound.WebAudioSound).isPlaying) return;
+    }
 
     /* Fade out the current track if one is playing. */
     if (this.currentMusicKey) {
