@@ -486,16 +486,21 @@ function buildPathSvg(mask) {
     // L-shaped path for corners -- grass triangle fills the inner corner
     // Determine which corner is "inside" (where the turn is)
     if (hasN && hasE) {
-      // Turn from N to E -- inner corner is top-right, grass in bottom-left
-      dirtPath = `M ${inset} 0 H ${64-inset} V ${64-inset} H 64 V 0 H ${inset} Z M ${inset} 0 V ${64-inset} H ${64-inset}`;
-      dirtPath = `<path d="M ${inset},0 L ${64-inset},0 L ${64-inset},${inset} L 64,${inset} L 64,${64-inset} L ${64-inset},${64-inset} L ${64-inset},${64-inset} L ${inset},${64-inset} L ${inset},0 Z" fill="url(#${id}g)"/>`;
+      // Path goes N and E -- dirt covers top strip + right strip, grass in bottom-left corner
+      dirtPath = `<rect x="${inset}" y="0" width="${pw}" height="${64-inset}" fill="url(#${id}g)"/>
+      <rect x="${64-inset}" y="${inset}" width="${inset}" height="${pw}" fill="url(#${id}g)"/>`;
     } else if (hasE && hasS) {
-      dirtPath = `<path d="M ${64-inset},0 L 64,0 L 64,${64-inset} L ${64-inset},${64-inset} L ${64-inset},64 L ${inset},64 L ${inset},${inset} L ${64-inset},${inset} L ${64-inset},0 Z" fill="url(#${id}g)"/>`;
+      // Path goes E and S -- dirt covers right strip + bottom strip, grass in top-left corner
+      dirtPath = `<rect x="${inset}" y="${inset}" width="${pw}" height="${64-inset}" fill="url(#${id}g)"/>
+      <rect x="${64-inset}" y="${inset}" width="${inset}" height="${pw}" fill="url(#${id}g)"/>`;
     } else if (hasS && hasW) {
-      dirtPath = `<path d="M 0,${inset} L ${inset},${inset} L ${inset},${inset} L ${64-inset},${inset} L ${64-inset},${64-inset} L ${inset},${64-inset} L ${inset},64 L 0,64 L 0,${inset} Z" fill="url(#${id}g)"/>`;
+      // Path goes S and W -- dirt covers bottom strip + left strip, grass in top-right corner
+      dirtPath = `<rect x="${inset}" y="${inset}" width="${pw}" height="${64-inset}" fill="url(#${id}g)"/>
+      <rect x="0" y="${inset}" width="${inset}" height="${pw}" fill="url(#${id}g)"/>`;
     } else { // hasW && hasN
-      dirtPath = `<path d="M 0,0 L ${inset},0 L ${inset},${64-inset} L ${64-inset},${64-inset} L ${64-inset},${inset} L ${inset},${inset} L 0,${inset} L 0,0 Z" fill="url(#${id}g)"/>`;
-      dirtPath = `<path d="M 0,0 L ${64-inset},0 L ${64-inset},${inset} L ${inset},${inset} L ${inset},${64-inset} L 0,${64-inset} L 0,0 Z" fill="url(#${id}g)"/>`;
+      // Path goes W and N -- dirt covers left strip + top strip, grass in bottom-right corner
+      dirtPath = `<rect x="${inset}" y="0" width="${pw}" height="${64-inset}" fill="url(#${id}g)"/>
+      <rect x="0" y="${inset}" width="${inset}" height="${pw}" fill="url(#${id}g)"/>`;
     }
   } else {
     // Simple rectangle for straights, endpoints, isolated tiles

@@ -29,18 +29,17 @@ import { DEPTH_TOWERS, DEPTH_PLACEMENT_GHOST, DEPTH_RANGE_PREVIEW, DEPTH_UI } fr
 // Build Menu Visual Constants
 // ---------------------------------------------------------------------------
 
-/** Build menu panel width in pixels. */
-const MENU_WIDTH = 160;
-/** Padding inside the build menu panel. */
-const MENU_PADDING = 8;
+/** Bottom bar height in pixels. */
+const BAR_HEIGHT = 56;
+/** Padding inside the bottom bar. */
 /** Gap between tower buttons. */
-const BUTTON_GAP = 6;
-/** Tower button dimensions. */
-const BUTTON_WIDTH = 144;
-const BUTTON_HEIGHT = 56;
+const BUTTON_GAP = 8;
+/** Tower button dimensions (compact for horizontal layout). */
+const BUTTON_WIDTH = 120;
+const BUTTON_HEIGHT = 42;
 /** Build menu background color. */
 const MENU_BG_COLOR = 0x1A1A2E;
-const MENU_BG_ALPHA = 0.85;
+// MENU_BG_ALPHA removed -- bottom bar uses alpha 1.0
 /** Build menu border color. */
 const MENU_BORDER_COLOR = 0x4A4A6A;
 /** Tower button colors. */
@@ -105,7 +104,7 @@ export class TowerPlacementSystem extends BaseSystem {
   private currencyText!: Phaser.GameObjects.Text;
   private towerButtons: TowerButton[] = [];
   /** X position of the build menu left edge (used for ghost hide check). */
-  private menuLeftX = 0;
+  // menuLeftX removed — bottom bar layout doesn't block columns
 
   // --- Placement Mode ---
   private placementActive = false;
@@ -204,9 +203,7 @@ export class TowerPlacementSystem extends BaseSystem {
   private createBuildMenu(): void {
     const allTowers = this.configManager.getAllTowers();
 
-    /* BOLT-021: Filter towers by progression unlock state.
-     * Only show towers the player has unlocked. ProgressionManager is on registry.
-     * Falls back to showing all non-utility towers if progression is unavailable. */
+    /* BOLT-021: Filter towers by progression unlock state. */
     const pm = this.scene.registry.get('progressionManager') as
       { isTowerUnlocked(id: string): boolean } | undefined;
     const towers = allTowers.filter(t => {
@@ -214,52 +211,42 @@ export class TowerPlacementSystem extends BaseSystem {
       return pm ? pm.isTowerUnlocked(t.id) : true;
     });
 
-    /* Calculate panel position. Game width is 1280 per game-config. */
+    /* Bottom bar: spans full width at the bottom of the screen. */
     const gameWidth = Number(this.scene.game.config.width);
-    const panelX = gameWidth - MENU_WIDTH - 4;
-    const panelY = 40;
-    this.menuLeftX = panelX;
+    const gameHeight = Number(this.scene.game.config.height);
+    const barY = gameHeight - BAR_HEIGHT;
+    // Bottom bar layout — no column blocking needed
 
-    this.menuContainer = this.scene.add.container(panelX, panelY).setDepth(DEPTH_UI);
+    this.menuContainer = this.scene.add.container(0, barY).setDepth(DEPTH_UI);
 
-    /* Panel background with border. */
-    const panelHeight = MENU_PADDING + 24 + 4 + (BUTTON_HEIGHT + BUTTON_GAP) * towers.length + MENU_PADDING;
+    /* Bar background with border. */
     const bg = this.scene.add.graphics();
-    bg.fillStyle(MENU_BG_COLOR, MENU_BG_ALPHA);
-    bg.fillRoundedRect(0, 0, MENU_WIDTH, panelHeight, 4);
+    bg.fillStyle(MENU_BG_COLOR, 1);
+    bg.fillRoundedRect(0, 0, gameWidth, BAR_HEIGHT, 0);
     bg.lineStyle(1, MENU_BORDER_COLOR, 1);
-    bg.strokeRoundedRect(0, 0, MENU_WIDTH, panelHeight, 4);
+    bg.lineBetween(0, 0, gameWidth, 0);
     this.menuContainer.add(bg);
 
-    /* Currency display at top of panel. */
-    this.currencyText = this.scene.add.text(
-      MENU_PADDING,
-      MENU_PADDING,
-      `${this.gameState.currency}`,
-      { fontSize: '16px', fontFamily: 'monospace', fontStyle: 'bold', color: CURRENCY_COLOR },
-    );
-    this.menuContainer.add(this.currencyText);
+    /* Tower buttons in a horizontal row, centered. */
+    const totalButtonsWidth = towers.length * BUTTON_WIDTH + (towers.length - 1) * BUTTON_GAP;
+    let buttonX = (gameWidth - totalButtonsWidth) / 2;
+    const buttonY = (BAR_HEIGHT - BUTTON_HEIGHT) / 2;
 
-    /* Separator line below currency. */
-    const sep = this.scene.add.graphics();
-    sep.lineStyle(1, MENU_BORDER_COLOR, 0.6);
-    sep.lineBetween(MENU_PADDING, 28, MENU_WIDTH - MENU_PADDING, 28);
-    this.menuContainer.add(sep);
-
-    /* Tower buttons. */
-    let buttonY = 34;
     for (const def of towers) {
-      const btn = this.createTowerButton(def, MENU_PADDING, buttonY);
+      const btn = this.createTowerButton(def, buttonX, buttonY);
       this.towerButtons.push(btn);
       this.menuContainer.add(btn.container);
-      buttonY += BUTTON_HEIGHT + BUTTON_GAP;
+      buttonX += BUTTON_WIDTH + BUTTON_GAP;
     }
 
-    /* Set interactive on the entire menu container background to block click-through. */
+    /* Block click-through on the bar background. */
     bg.setInteractive(
-      new Phaser.Geom.Rectangle(0, 0, MENU_WIDTH, panelHeight),
+      new Phaser.Geom.Rectangle(0, 0, gameWidth, BAR_HEIGHT),
       Phaser.Geom.Rectangle.Contains,
     );
+
+    /* Currency text not needed here — it's in the top HUD bar. */
+    this.currencyText = this.scene.add.text(0, 0, '', { fontSize: '1px' }).setVisible(false);
 
     this.refreshAffordability();
   }
@@ -839,11 +826,13 @@ export class TowerPlacementSystem extends BaseSystem {
   // ---------------------------------------------------------------------------
 
   /**
-   * Checks if a world X position overlaps the build menu panel area.
+   * Checks if the cursor is over the bottom build bar area.
    * Used to hide the ghost and block placement clicks over the menu.
    */
-  private isCursorOverMenu(worldX: number): boolean {
-    return worldX >= this.menuLeftX;
+  private isCursorOverMenu(_worldX: number, worldY?: number): boolean {
+    const gameHeight = Number(this.scene.game.config.height);
+    const cursorY = worldY ?? this.scene.input.activePointer.worldY;
+    return cursorY >= gameHeight - BAR_HEIGHT;
   }
 
   // ---------------------------------------------------------------------------
