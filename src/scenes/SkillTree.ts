@@ -221,7 +221,8 @@ export class SkillTree extends Phaser.Scene {
 
     const caps = this.config.capstones.filter(cap => cap.towerId === towerId);
     for (const cap of caps) {
-      buildCapstoneRow(this, c, this.manager, cap, towerId, y);
+      buildCapstoneRow(this, c, this.manager, cap, towerId, y,
+        (id, name, cost, nx, ny) => this.handleCapstonePurchase(id, name, cost, nx, ny));
       y += CAPSTONE_ROW_HEIGHT;
     }
     this.totalContentHeight = y + 10;
@@ -307,6 +308,30 @@ export class SkillTree extends Phaser.Scene {
 
     this.modal = showConfirmationModal(this, name, cost, remaining,
       () => { this.closeAndClearModal(); if (this.manager.purchaseGlobalTier(upgradeId)) this.onPurchaseComplete(); },
+      () => this.closeAndClearModal());
+  }
+
+  /**
+   * BOLT-026: Handles capstone purchase -- opens confirmation modal.
+   * On confirm, calls purchaseCapstone and plays VFX at the node's position.
+   */
+  private handleCapstonePurchase(
+    capstoneId: string, capstoneName: string, cost: number,
+    nodeX: number, nodeY: number,
+  ): void {
+    if (this.modal) return;
+    const remaining = this.manager.getAvailableXp() - cost;
+
+    this.modal = showConfirmationModal(this, capstoneName, cost, remaining,
+      () => {
+        this.closeAndClearModal();
+        if (this.manager.purchaseCapstone(capstoneId)) {
+          /* VFX at the capstone node position (not center of screen). */
+          this.playPurchaseVFX(nodeX, nodeY);
+          this.buildContentForTab(this.activeTabIndex);
+          if (this.xpText) this.xpText.setText(`Available XP: ${this.manager.getAvailableXp()}`);
+        }
+      },
       () => this.closeAndClearModal());
   }
 

@@ -548,11 +548,21 @@ export class EnemySystem extends BaseSystem {
    * is cheaper than 100 individual Graphics objects.
    *
    * BOLT-017: Shielded enemies get a cyan shield bar above the health bar.
+   * BOLT-026: Spotter capstone forces HP bar visibility for enemies within
+   * Sniper range via 'spotterVisibleEnemies' registry Set. Currently all
+   * moving enemies always show HP bars, so spotter is satisfied by default.
+   * The set is available for future conditional HP bar visibility.
    */
   private drawHealthBars(): void {
     if (!this.healthBarGraphics) return;
 
     this.healthBarGraphics.clear();
+
+    /* BOLT-026: Read spotter visibility set (populated by TowerCombatSystem).
+     * Currently unused because HP bars draw for all moving enemies by default.
+     * Available for future conditional HP bar visibility. */
+    void ((this.scene.registry as { get?(key: string): unknown })
+      ?.get?.('spotterVisibleEnemies') as Set<string> | undefined);
 
     for (const enemy of this.activeEnemies) {
       /* Only draw bars for moving enemies (not dying/dead). */

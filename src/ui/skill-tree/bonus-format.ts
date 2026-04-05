@@ -67,11 +67,30 @@ export function formatGlobalBonus(
 /**
  * Formats the prerequisite requirement text for a capstone node.
  * All prerequisites for a given capstone share the same minTier.
+ * BOLT-026: Optionally accepts towerState to compute progress count.
  *
  * @param capstoneDef - Capstone definition with prerequisite data.
- * @returns Human-readable prerequisite string (e.g., "Requires: 2 stats at Tier 2").
+ * @param towerState - Optional tower upgrade state for progress display.
+ * @returns Human-readable prerequisite string (e.g., "Requires: 2 stats at Tier 2 (1/2)").
  */
-export function formatCapstonePrereq(capstoneDef: CapstoneDefinition): string {
+export function formatCapstonePrereq(
+  capstoneDef: CapstoneDefinition,
+  towerState?: import('../../types/game-types').TowerUpgradeState,
+): string {
   const minTier = capstoneDef.prerequisites[0]?.minTier ?? 0;
-  return `Requires: ${capstoneDef.requiredCount} stats at Tier ${minTier}`;
+  const base = `Requires: ${capstoneDef.requiredCount} stats at Tier ${minTier}`;
+
+  if (!towerState) return base;
+
+  /* Count how many prerequisites are currently met. */
+  let metCount = 0;
+  const statNames: Array<import('../../types/game-types').TowerStatName> = ['damage', 'fireRate', 'range', 'upgradeDiscount'];
+  for (const prereq of capstoneDef.prerequisites) {
+    const statName = prereq.stat as import('../../types/game-types').TowerStatName;
+    if (statNames.includes(statName) && towerState[statName] >= prereq.minTier) {
+      metCount++;
+    }
+  }
+
+  return `${base} (${metCount}/${capstoneDef.requiredCount})`;
 }
