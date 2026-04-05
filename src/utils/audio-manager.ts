@@ -93,6 +93,9 @@ export class AudioManager {
   /** Currently playing background music key (null if none). */
   private currentMusicKey: string | null = null;
 
+  /** Phaser sound manager for playing loaded MP3/OGG files. */
+  private soundManager: Phaser.Sound.BaseSoundManager | null = null;
+
   /**
    * Creates the AudioManager, initializes the SynthAudio engine,
    * and reads initial volume from settings.
@@ -101,6 +104,7 @@ export class AudioManager {
    */
   constructor(scene: Phaser.Scene) {
     this.scene = scene;
+    this.soundManager = scene.sound ?? null;
 
     /* Read initial volume from registry settings (set by MainMenu). */
     const settings = this.getSettings();
@@ -136,13 +140,22 @@ export class AudioManager {
     const perSfxMult = SFX_VOLUME_MULTIPLIERS[key] ?? 1.0;
     const effectiveVolume = this.sfxVolume * perSfxMult;
 
-    /* Route to the synthesizer. */
+    /* Try Phaser-loaded audio first (real MP3/OGG files). */
+    if (this.soundManager && this.soundManager.get(key)) {
+      try {
+        this.soundManager.play(key, { volume: effectiveVolume });
+        this.lastPlayTime.set(key, Date.now());
+        return true;
+      } catch {
+        /* Fall through to synth on Phaser audio failure. */
+      }
+    }
+
+    /* Fallback: route to the Web Audio API synthesizer. */
     const synthFn = SFX_TO_SYNTH[key];
     if (!synthFn) return false;
 
     try {
-      /* Set the synth volume to the effective level before playing.
-       * This applies both the global SFX volume and per-sound multiplier. */
       this.synth.setVolume(effectiveVolume);
       synthFn(this.synth);
       this.lastPlayTime.set(key, Date.now());

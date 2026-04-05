@@ -142,12 +142,26 @@ export const ASSET_MANIFEST: AssetManifest = {
   ],
 
   audio: [
-    /* Audio files removed -- SFX are now generated at runtime via
-     * SynthAudio (Web Audio API procedural synthesis). The placeholder
-     * .ogg files were 58-byte stubs that browsers couldn't decode,
-     * causing 54 console errors per page load. Music is also removed
-     * since no real music assets exist yet. When real music files are
-     * added, re-add their entries here. */
+    /* Real MP3 audio files provided by the user. Phaser's sound manager
+     * loads these and AudioManager prefers them over SynthAudio fallback. */
+    { key: 'sfx-tower-fire-ranged', path: '/assets/audio/sfx-tower-fire-ranged.mp3' },
+    { key: 'sfx-tower-fire-focused', path: '/assets/audio/sfx-tower-fire-focused.mp3' },
+    { key: 'sfx-tower-fire-broadcast', path: '/assets/audio/sfx-tower-fire-broadcast.mp3' },
+    { key: 'sfx-tower-fire-antiair', path: '/assets/audio/sfx-tower-fire-antiair.mp3' },
+    { key: 'sfx-enemy-hit', path: '/assets/audio/sfx-enemy-hit.mp3' },
+    { key: 'sfx-enemy-died', path: '/assets/audio/sfx-enemy-died.mp3' },
+    { key: 'sfx-tower-placed', path: '/assets/audio/sfx-tower-placed.mp3' },
+    { key: 'sfx-tower-upgraded', path: '/assets/audio/sfx-tower-upgraded.mp3' },
+    { key: 'sfx-tower-removed', path: '/assets/audio/sfx-tower-removed.mp3' },
+    { key: 'sfx-wave-started', path: '/assets/audio/sfx-wave-started.mp3' },
+    { key: 'sfx-wave-completed', path: '/assets/audio/sfx-wave-completed.mp3' },
+    { key: 'sfx-game-victory', path: '/assets/audio/sfx-game-victory.mp3' },
+    { key: 'sfx-game-defeat', path: '/assets/audio/sfx-game-defeat.mp3' },
+    { key: 'sfx-currency-gain', path: '/assets/audio/sfx-currency-gain.mp3' },
+    { key: 'sfx-ui-click', path: '/assets/audio/sfx-ui-click.mp3' },
+    { key: 'sfx-low-hp-alert', path: '/assets/audio/sfx-low-hp-alert.mp3' },
+    { key: 'music-menu-theme', path: '/assets/audio/music-menu-theme.mp3' },
+    { key: 'music-gameplay-ambient', path: '/assets/audio/music-gameplay-ambient.mp3' },
   ],
 
   json: [
