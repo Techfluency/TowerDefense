@@ -135,10 +135,73 @@ export const ASSET_MANIFEST: AssetManifest = {
     { key: 'tile-objective-e', path: 'sprites/tiles/objective/tile-objective-e.png' },
     { key: 'tile-objective-s', path: 'sprites/tiles/objective/tile-objective-s.png' },
     { key: 'tile-objective-w', path: 'sprites/tiles/objective/tile-objective-w.png' },
+
+    /* BOLT-027: Tiny Swords terrain static sprites. */
+    { key: 'terrain-water', path: 'sprites/terrain/water.png' },
+
+    /* BOLT-027: Tiny Swords decoration static sprites (rocks, clouds, campfire). */
+    { key: 'deco-rock-1', path: 'sprites/decorations/rock-1.png' },
+    { key: 'deco-rock-2', path: 'sprites/decorations/rock-2.png' },
+    { key: 'deco-rock-3', path: 'sprites/decorations/rock-3.png' },
+    { key: 'deco-rock-4', path: 'sprites/decorations/rock-4.png' },
+    { key: 'deco-cloud-1', path: 'sprites/decorations/cloud-1.png' },
+    { key: 'deco-cloud-2', path: 'sprites/decorations/cloud-2.png' },
+    { key: 'deco-cloud-3', path: 'sprites/decorations/cloud-3.png' },
+    { key: 'deco-cloud-4', path: 'sprites/decorations/cloud-4.png' },
+    { key: 'deco-cloud-5', path: 'sprites/decorations/cloud-5.png' },
+    { key: 'deco-cloud-6', path: 'sprites/decorations/cloud-6.png' },
+    { key: 'deco-cloud-7', path: 'sprites/decorations/cloud-7.png' },
+    { key: 'deco-cloud-8', path: 'sprites/decorations/cloud-8.png' },
+    { key: 'deco-spawn-campfire', path: 'sprites/decorations/spawn-campfire.png' },
+
+    /* BOLT-027: Tiny Swords building static sprites. */
+    { key: 'building-castle-blue', path: 'sprites/buildings/castle-blue.png' },
+    { key: 'building-castle-destroyed', path: 'sprites/buildings/castle-destroyed.png' },
+
+    /* BOLT-027: Tiny Swords resource static sprites. */
+    { key: 'resource-gold', path: 'sprites/resources/gold-resource.png' },
   ],
 
   spritesheets: [
-    /* No spritesheets in BOLT-001. Future bolts add animated sprites here. */
+    /* BOLT-027: Enemy movement spritesheets (Tiny Swords pixel art).
+     * Gnoll/Troll/Turtle/Minotaur use Walk sheets (no Run sheet exists).
+     * All others use Run sheets. Frame dimensions measured from source PNGs. */
+    { key: 'enemy-runner-sheet', path: 'sprites/enemies/gnoll-walk.png', frameWidth: 192, frameHeight: 192 },
+    { key: 'enemy-runner-alt-sheet', path: 'sprites/enemies/thief-run.png', frameWidth: 192, frameHeight: 192 },
+    { key: 'enemy-tank-sheet', path: 'sprites/enemies/troll-walk.png', frameWidth: 384, frameHeight: 384 },
+    { key: 'enemy-tank-alt-sheet', path: 'sprites/enemies/bear-run.png', frameWidth: 256, frameHeight: 256 },
+    { key: 'enemy-fast-sheet', path: 'sprites/enemies/spider-run.png', frameWidth: 192, frameHeight: 192 },
+    { key: 'enemy-fast-alt-sheet', path: 'sprites/enemies/snake-run.png', frameWidth: 192, frameHeight: 192 },
+    { key: 'enemy-flyer-sheet', path: 'sprites/enemies/skull-run.png', frameWidth: 192, frameHeight: 192 },
+    { key: 'enemy-swarm-sheet', path: 'sprites/enemies/gnome-run.png', frameWidth: 192, frameHeight: 192 },
+    { key: 'enemy-shielded-sheet', path: 'sprites/enemies/turtle-walk.png', frameWidth: 320, frameHeight: 320 },
+    { key: 'enemy-support-sheet', path: 'sprites/enemies/shaman-run.png', frameWidth: 192, frameHeight: 192 },
+    { key: 'enemy-boss-sheet', path: 'sprites/enemies/minotaur-walk.png', frameWidth: 320, frameHeight: 320 },
+
+    /* BOLT-027: Terrain tileset spritesheets.
+     * Tilemap_Flat and Tilemap_Elevation are PNG tile grids, NOT Tiled JSON
+     * tilemaps -- they belong in spritesheets, not tilemaps array. */
+    { key: 'terrain-tilemap-flat', path: 'sprites/terrain/tilemap-flat.png', frameWidth: 64, frameHeight: 64 },
+    { key: 'terrain-tilemap-elevation', path: 'sprites/terrain/tilemap-elevation.png', frameWidth: 64, frameHeight: 64 },
+    { key: 'terrain-foam', path: 'sprites/terrain/foam.png', frameWidth: 192, frameHeight: 192 },
+    { key: 'terrain-water-rocks-1', path: 'sprites/terrain/water-rocks-1.png', frameWidth: 64, frameHeight: 64 },
+    { key: 'terrain-water-rocks-2', path: 'sprites/terrain/water-rocks-2.png', frameWidth: 64, frameHeight: 64 },
+    { key: 'terrain-water-rocks-3', path: 'sprites/terrain/water-rocks-3.png', frameWidth: 64, frameHeight: 64 },
+    { key: 'terrain-water-rocks-4', path: 'sprites/terrain/water-rocks-4.png', frameWidth: 64, frameHeight: 64 },
+
+    /* BOLT-027: Effect spritesheets (explosion and fire animations). */
+    { key: 'vfx-explosion', path: 'sprites/effects/explosions.png', frameWidth: 192, frameHeight: 192 },
+    { key: 'vfx-fire', path: 'sprites/effects/fire.png', frameWidth: 128, frameHeight: 128 },
+
+    /* BOLT-027: Decoration spritesheets (animated bushes). */
+    { key: 'deco-bush-1', path: 'sprites/decorations/bush-1.png', frameWidth: 128, frameHeight: 128 },
+    { key: 'deco-bush-2', path: 'sprites/decorations/bush-2.png', frameWidth: 128, frameHeight: 128 },
+    { key: 'deco-bush-3', path: 'sprites/decorations/bush-3.png', frameWidth: 128, frameHeight: 128 },
+    { key: 'deco-bush-4', path: 'sprites/decorations/bush-4.png', frameWidth: 128, frameHeight: 128 },
+
+    /* BOLT-027: Projectile spritesheets (arrow variants, spinning dynamite). */
+    { key: 'projectile-arrow-sheet', path: 'sprites/projectiles/arrow.png', frameWidth: 64, frameHeight: 64 },
+    { key: 'projectile-dynamite-sheet', path: 'sprites/projectiles/dynamite.png', frameWidth: 64, frameHeight: 64 },
   ],
 
   audio: [
