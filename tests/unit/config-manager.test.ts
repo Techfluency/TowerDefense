@@ -81,6 +81,21 @@ const mockMapConfig = {
   complexityRange: [1, 10],
 };
 
+/* BOLT-023: Minimal skill tree config for ConfigManager construction. */
+const mockSkillTreeConfig = {
+  towerStats: {
+    costs: [25, 50, 100, 175, 250],
+    bonusPerTier: {
+      damage: [0.05, 0.10, 0.15, 0.20, 0.25],
+      fireRate: [0.05, 0.10, 0.15, 0.20, 0.25],
+      range: [0.05, 0.08, 0.12, 0.16, 0.20],
+      upgradeDiscount: [0.05, 0.10, 0.15, 0.20, 0.25],
+    },
+  },
+  capstones: [],
+  globalUpgrades: [],
+};
+
 /**
  * Creates a mock Phaser scene with a fake JSON cache.
  * The cache returns the provided data for the matching cache key.
@@ -114,6 +129,7 @@ describe('ConfigManager', () => {
         earlyStartBonus: 25,
         waveScoreBonusPerWave: 500,
       },
+      'config-skill-tree': mockSkillTreeConfig,
     });
     configManager = new ConfigManager(mockScene);
   });
@@ -205,6 +221,7 @@ describe('ConfigManager', () => {
         'config-map': mockMapConfig,
         'config-tower-upgrades': [],
         'config-economy': { startingCurrency: 150, waveBonusBase: 10, waveBonusPerWave: 5, earlyStartBonus: 25, waveScoreBonusPerWave: 500 },
+        'config-skill-tree': mockSkillTreeConfig,
       });
       expect(() => new ConfigManager(badScene)).toThrow(
         'towers.json" not found in cache',
@@ -219,6 +236,7 @@ describe('ConfigManager', () => {
         'config-map': mockMapConfig,
         'config-tower-upgrades': [],
         'config-economy': { startingCurrency: 150, waveBonusBase: 10, waveBonusPerWave: 5, earlyStartBonus: 25, waveScoreBonusPerWave: 500 },
+        'config-skill-tree': mockSkillTreeConfig,
       });
       expect(() => new ConfigManager(badScene)).toThrow(
         'enemies.json" not found in cache',
@@ -233,6 +251,7 @@ describe('ConfigManager', () => {
         'config-map': mockMapConfig,
         'config-tower-upgrades': [],
         'config-economy': { startingCurrency: 150, waveBonusBase: 10, waveBonusPerWave: 5, earlyStartBonus: 25, waveScoreBonusPerWave: 500 },
+        'config-skill-tree': mockSkillTreeConfig,
       });
       expect(() => new ConfigManager(badScene)).toThrow(
         'waves.json" not found in cache',
@@ -247,6 +266,7 @@ describe('ConfigManager', () => {
         'config-map': mockMapConfig,
         'config-tower-upgrades': [],
         'config-economy': { startingCurrency: 150, waveBonusBase: 10, waveBonusPerWave: 5, earlyStartBonus: 25, waveScoreBonusPerWave: 500 },
+        'config-skill-tree': mockSkillTreeConfig,
       });
       expect(() => new ConfigManager(badScene)).toThrow(
         'projectiles.json" not found in cache',
