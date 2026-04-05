@@ -72,6 +72,12 @@ export class MainMenu extends Phaser.Scene {
       } as SettingsState);
     }
 
+    /* Auto-start: skip menu if ?autostart is in the URL (for testing). */
+    if (window.location.search.includes('autostart')) {
+      this.scene.start(SCENE_KEYS.GAMEPLAY);
+      return;
+    }
+
     /* --- Background --- */
     this.cameras.main.setBackgroundColor('#1A1A2E');
 
