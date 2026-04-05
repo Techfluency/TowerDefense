@@ -22,7 +22,7 @@ import type { EconomySystem } from './economy-system';
 import { resolveEffectiveStats } from '../utils/stat-resolver';
 import type { TowerRegistry } from './tower-registry';
 import type { MapData } from '../data/map-data';
-import { TILE_SIZE } from '../config/performance-budget';
+import { TILE_SIZE, MAP_OFFSET_Y } from '../config/performance-budget';
 import { DEPTH_TOWERS, DEPTH_PLACEMENT_GHOST, DEPTH_RANGE_PREVIEW, DEPTH_UI } from '../config/depth-layers';
 
 // ---------------------------------------------------------------------------
@@ -491,7 +491,7 @@ export class TowerPlacementSystem extends BaseSystem {
 
     /* Check if cursor is over the build menu area -- hide ghost if so. */
     const worldX = col * TILE_SIZE + TILE_SIZE / 2;
-    const worldY = row * TILE_SIZE + TILE_SIZE / 2;
+    const worldY = row * TILE_SIZE + TILE_SIZE / 2 + MAP_OFFSET_Y;
 
     if (this.isCursorOverMenu(worldX)) {
       this.ghostSprite.setVisible(false);
@@ -591,7 +591,7 @@ export class TowerPlacementSystem extends BaseSystem {
     /* Convert pointer to grid coordinates. */
     const worldPoint = this.scene.cameras.main.getWorldPoint(pointer.x, pointer.y);
     const col = Math.floor(worldPoint.x / TILE_SIZE);
-    const row = Math.floor(worldPoint.y / TILE_SIZE);
+    const row = Math.floor((worldPoint.y - MAP_OFFSET_Y) / TILE_SIZE);
 
     /* Check if there is a tower at this position. */
     const tower = this.towerRegistry.getTowerAt(col, row);
@@ -663,7 +663,7 @@ export class TowerPlacementSystem extends BaseSystem {
 
     const def = this.selectedTowerDef;
     const worldX = col * TILE_SIZE + TILE_SIZE / 2;
-    const worldY = row * TILE_SIZE + TILE_SIZE / 2;
+    const worldY = row * TILE_SIZE + TILE_SIZE / 2 + MAP_OFFSET_Y;
 
     /* Create the permanent tower sprite. */
     const towerSprite = this.scene.add.sprite(worldX, worldY, def.spriteKey);

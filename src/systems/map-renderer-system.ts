@@ -21,7 +21,7 @@
 import Phaser from 'phaser';
 import { BaseSystem } from './base-system';
 import { MapData } from '../data/map-data';
-import { TILE_SIZE } from '../config/performance-budget';
+import { TILE_SIZE, MAP_OFFSET_Y } from '../config/performance-budget';
 import {
   GAME_EVENTS,
   REGISTRY_KEYS,
@@ -204,7 +204,7 @@ export class MapRendererSystem extends BaseSystem {
         /* Position at tile center: col * 64 + 32, row * 64 + 32.
          * Phaser Images default to origin(0.5, 0.5) so this centers them. */
         const worldX = col * TILE_SIZE + TILE_SIZE / 2;
-        const worldY = row * TILE_SIZE + TILE_SIZE / 2;
+        const worldY = row * TILE_SIZE + TILE_SIZE / 2 + MAP_OFFSET_Y;
 
         const sprite = this.scene.add.image(worldX, worldY, spriteKey);
 

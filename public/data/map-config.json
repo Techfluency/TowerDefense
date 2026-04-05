@@ -1,6 +1,6 @@
 {
   "cols": 20,
-  "rows": 11,
+  "rows": 10,
   "tileSize": 64,
   "minPathLength": 20,
   "maxStraightTiles": 3,

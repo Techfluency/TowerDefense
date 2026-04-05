@@ -16,7 +16,7 @@ import { BaseSystem } from './base-system';
 import { GAME_EVENTS } from '../types/game-types';
 import type { GameState } from '../types/game-types';
 import type { TileClickedPayload, TileHoverPayload } from '../types/events';
-import { TILE_SIZE } from '../config/performance-budget';
+import { TILE_SIZE, MAP_OFFSET_Y } from '../config/performance-budget';
 
 export class InputSystem extends BaseSystem {
   /** Track the last hovered tile to only emit on tile boundary crossings. */
@@ -78,7 +78,7 @@ export class InputSystem extends BaseSystem {
 
     const worldPoint = this.scene.cameras.main.getWorldPoint(pointer.x, pointer.y);
     const col = Math.floor(worldPoint.x / TILE_SIZE);
-    const row = Math.floor(worldPoint.y / TILE_SIZE);
+    const row = Math.floor((worldPoint.y - MAP_OFFSET_Y) / TILE_SIZE);
 
     /* Ignore clicks outside the positive grid space. */
     if (col < 0 || row < 0) return;
@@ -100,7 +100,7 @@ export class InputSystem extends BaseSystem {
   private handlePointerMove(pointer: Phaser.Input.Pointer): void {
     const worldPoint = this.scene.cameras.main.getWorldPoint(pointer.x, pointer.y);
     const col = Math.floor(worldPoint.x / TILE_SIZE);
-    const row = Math.floor(worldPoint.y / TILE_SIZE);
+    const row = Math.floor((worldPoint.y - MAP_OFFSET_Y) / TILE_SIZE);
 
     /* Only emit when the tile actually changes -- prevents flooding. */
     if (col === this.lastHoverCol && row === this.lastHoverRow) return;

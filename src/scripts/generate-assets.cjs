@@ -470,6 +470,38 @@ function buildPathSvg(mask) {
   // Unique filter IDs per mask to avoid SVG id collisions in composite renders
   const id = `pm${mask}`;
 
+  // Build the dirt path shape -- for corners (exactly 2 adjacent connections),
+  // use an L-shaped polygon with rounded grass trim in the inner corner.
+  // For straights (2 opposite connections) or endpoints (0-1 connections),
+  // use the simple rectangle.
+  const connCount = [hasN, hasE, hasS, hasW].filter(Boolean).length;
+  const isCorner = connCount === 2 && !((hasN && hasS) || (hasE && hasW));
+
+  // Path width for terminated edges
+  const pw = 48; // path width (centered in 64px tile)
+  const inset = (64 - pw) / 2; // 8px inset from edge
+
+  let dirtPath;
+  if (isCorner) {
+    // L-shaped path for corners -- grass triangle fills the inner corner
+    // Determine which corner is "inside" (where the turn is)
+    if (hasN && hasE) {
+      // Turn from N to E -- inner corner is top-right, grass in bottom-left
+      dirtPath = `M ${inset} 0 H ${64-inset} V ${64-inset} H 64 V 0 H ${inset} Z M ${inset} 0 V ${64-inset} H ${64-inset}`;
+      dirtPath = `<path d="M ${inset},0 L ${64-inset},0 L ${64-inset},${inset} L 64,${inset} L 64,${64-inset} L ${64-inset},${64-inset} L ${64-inset},${64-inset} L ${inset},${64-inset} L ${inset},0 Z" fill="url(#${id}g)"/>`;
+    } else if (hasE && hasS) {
+      dirtPath = `<path d="M ${64-inset},0 L 64,0 L 64,${64-inset} L ${64-inset},${64-inset} L ${64-inset},64 L ${inset},64 L ${inset},${inset} L ${64-inset},${inset} L ${64-inset},0 Z" fill="url(#${id}g)"/>`;
+    } else if (hasS && hasW) {
+      dirtPath = `<path d="M 0,${inset} L ${inset},${inset} L ${inset},${inset} L ${64-inset},${inset} L ${64-inset},${64-inset} L ${inset},${64-inset} L ${inset},64 L 0,64 L 0,${inset} Z" fill="url(#${id}g)"/>`;
+    } else { // hasW && hasN
+      dirtPath = `<path d="M 0,0 L ${inset},0 L ${inset},${64-inset} L ${64-inset},${64-inset} L ${64-inset},${inset} L ${inset},${inset} L 0,${inset} L 0,0 Z" fill="url(#${id}g)"/>`;
+      dirtPath = `<path d="M 0,0 L ${64-inset},0 L ${64-inset},${inset} L ${inset},${inset} L ${inset},${64-inset} L 0,${64-inset} L 0,0 Z" fill="url(#${id}g)"/>`;
+    }
+  } else {
+    // Simple rectangle for straights, endpoints, isolated tiles
+    dirtPath = `<rect x="${left}" y="${top}" width="${right - left}" height="${bottom - top}" fill="url(#${id}g)"/>`;
+  }
+
   return `<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64">
   <defs>
     <linearGradient id="${id}g" x1="0" y1="0" x2="0.7" y2="1">
@@ -492,8 +524,7 @@ function buildPathSvg(mask) {
   ${!hasS ? '<g stroke="#2A6B2E" stroke-width="1.3" stroke-linecap="round" opacity="0.5"><line x1="12" y1="58" x2="10" y2="63"/><line x1="28" y1="57" x2="26" y2="62"/><line x1="44" y1="58" x2="42" y2="63"/></g>' : ''}
   ${!hasW ? '<g stroke="#2A6B2E" stroke-width="1.3" stroke-linecap="round" opacity="0.5"><line x1="6" y1="12" x2="1" y2="10"/><line x1="5" y1="32" x2="1" y2="30"/><line x1="6" y1="50" x2="1" y2="48"/></g>' : ''}
   <!-- Dirt/sand path surface -->
-  <rect x="${left}" y="${top}" width="${right - left}" height="${bottom - top}" fill="url(#${id}g)"/>
-  <rect x="${left}" y="${top}" width="${right - left}" height="${bottom - top}" fill="url(#${id}g)" filter="url(#${id}n)" opacity="0.2"/>
+  ${dirtPath}
   <!-- Pebble detail on path surface -->
   <circle cx="${left + 10}" cy="${top + 8}" r="1.5" fill="#8B7340" opacity="0.45"/>
   <circle cx="${right - 12}" cy="${bottom - 10}" r="2" fill="#806830" opacity="0.4"/>

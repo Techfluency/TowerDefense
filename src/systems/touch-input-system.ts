@@ -18,7 +18,7 @@ import Phaser from 'phaser';
 import { BaseSystem } from './base-system';
 import { GAME_EVENTS } from '../types/game-types';
 import type { GameState } from '../types/game-types';
-import { TILE_SIZE } from '../config/performance-budget';
+import { TILE_SIZE, MAP_OFFSET_Y } from '../config/performance-budget';
 import { LONG_PRESS_DURATION_MS } from '../utils/mobile-detect';
 
 /** Maximum movement in pixels before a long-press is cancelled. */
@@ -133,7 +133,7 @@ export class TouchInputSystem extends BaseSystem {
     /* Convert pointer position to grid coordinates. */
     const worldPoint = this.scene.cameras.main.getWorldPoint(pointer.x, pointer.y);
     const col = Math.floor(worldPoint.x / TILE_SIZE);
-    const row = Math.floor(worldPoint.y / TILE_SIZE);
+    const row = Math.floor((worldPoint.y - MAP_OFFSET_Y) / TILE_SIZE);
 
     if (col < 0 || row < 0) return;
 
@@ -169,7 +169,7 @@ export class TouchInputSystem extends BaseSystem {
 
     const worldPoint = this.scene.cameras.main.getWorldPoint(pointer.x, pointer.y);
     const col = Math.floor(worldPoint.x / TILE_SIZE);
-    const row = Math.floor(worldPoint.y / TILE_SIZE);
+    const row = Math.floor((worldPoint.y - MAP_OFFSET_Y) / TILE_SIZE);
 
     if (col < 0 || row < 0) return;
 

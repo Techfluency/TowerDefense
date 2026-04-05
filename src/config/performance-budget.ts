@@ -35,3 +35,11 @@ export const SYSTEM_BUDGET_MS = 2.0;
 
 /** Tile size in pixels. Used for grid coordinate calculations. */
 export const TILE_SIZE = 64;
+
+/**
+ * Vertical offset for the map area below the HUD bar.
+ * All world Y positions for tiles, enemies, towers, and placement
+ * must add this offset. Input systems must subtract it when converting
+ * pointer Y to grid row.
+ */
+export const MAP_OFFSET_Y = 44;

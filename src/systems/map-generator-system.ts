@@ -19,7 +19,7 @@
 import Phaser from 'phaser';
 import { BaseSystem } from './base-system';
 import { MapData } from '../data/map-data';
-import { TILE_SIZE } from '../config/performance-budget';
+import { TILE_SIZE, MAP_OFFSET_Y } from '../config/performance-budget';
 import {
   GAME_EVENTS,
   type GameState,
@@ -580,7 +580,7 @@ export class MapGeneratorSystem extends BaseSystem {
       col: p.col,
       row: p.row,
       worldX: p.col * TILE_SIZE + TILE_SIZE / 2,
-      worldY: p.row * TILE_SIZE + TILE_SIZE / 2,
+      worldY: p.row * TILE_SIZE + TILE_SIZE / 2 + MAP_OFFSET_Y,
     }));
 
     return new MapData(grid, waypoints, cols, rows, complexity, this.gameState.gameSeed);
