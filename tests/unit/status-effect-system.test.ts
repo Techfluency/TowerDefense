@@ -133,23 +133,35 @@ describe('StatusEffectSystem - Slow effect', () => {
     expect(enemy.currentSpeed).toBe(100);
   });
 
-  it('refreshes duration on reapplication without stacking', () => {
+  it('stacks slow from different sources additively with 50% cap (BOLT-026)', () => {
     const enemy = createMockEnemy('enemy-1', 100);
     const { system } = createSystem([enemy]);
 
     system.applyEffect('enemy-1', 'slow', 2.0, 0.7, 'tower-1');
     expect(enemy.currentSpeed).toBe(70);
 
-    /* After 1 second, reapply (refreshes duration). */
+    /* After 1 second, apply slow from a different tower (additive stacking). */
     system.update(0, 1000);
     system.applyEffect('enemy-1', 'slow', 2.0, 0.7, 'tower-2');
 
-    /* Speed should still be 70, not 70*0.7=49 (no stacking). */
-    expect(enemy.currentSpeed).toBe(70);
+    /* Two 30% slows = 60%, capped at 50%. Speed = 100 * (1 - 0.50) = 50. */
+    expect(enemy.currentSpeed).toBe(50);
 
-    /* After 1 more second, effect should still be active (was refreshed). */
+    /* After 1 more second, both effects should still be active. */
     system.update(0, 1000);
     expect(system.hasEffect('enemy-1', 'slow')).toBe(true);
+  });
+
+  it('refreshes duration from same source without adding a new slow entry', () => {
+    const enemy = createMockEnemy('enemy-1', 100);
+    const { system } = createSystem([enemy]);
+
+    system.applyEffect('enemy-1', 'slow', 2.0, 0.7, 'tower-1');
+    expect(enemy.currentSpeed).toBe(70);
+
+    /* Reapply from SAME source: refreshes duration, no magnitude change. */
+    system.applyEffect('enemy-1', 'slow', 2.0, 0.7, 'tower-1');
+    expect(enemy.currentSpeed).toBe(70);
   });
 
   it('reports effect is active via hasEffect', () => {
