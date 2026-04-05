@@ -708,6 +708,67 @@ export class VFXManager {
   }
 
   // -------------------------------------------------------------------------
+  // BOLT-026: Capstone VFX
+  // -------------------------------------------------------------------------
+
+  /**
+   * Plays the aftershock damage zone VFX: an orange-red filled circle that
+   * fades from 0.3 alpha to 0 over the given duration. Visually distinct
+   * from the teal shockwave burst.
+   *
+   * @param x - World X center of the zone (tower position).
+   * @param y - World Y center of the zone.
+   * @param radius - Zone radius in pixels.
+   * @param duration - Zone VFX duration in milliseconds.
+   */
+  playAftershockZone(x: number, y: number, radius: number, duration: number): void {
+    const gfx = this.scene.add.graphics();
+    gfx.setDepth(DEPTH_VFX);
+
+    /* Orange-red filled circle. */
+    gfx.fillStyle(0xFF6B35, 0.3);
+    gfx.fillCircle(x, y, radius);
+
+    /* Fade out over duration then destroy. */
+    this.scene.tweens.add({
+      targets: gfx,
+      alpha: 0,
+      duration,
+      ease: 'Linear',
+      onComplete: () => gfx.destroy(),
+    });
+  }
+
+  /**
+   * Plays the flak field AoE burst VFX: an expanding orange ring at the
+   * missile impact position.
+   *
+   * @param x - World X of the impact point.
+   * @param y - World Y of the impact point.
+   * @param radius - Maximum ring radius in pixels.
+   */
+  playFlakBurst(x: number, y: number, radius: number): void {
+    const gfx = this.scene.add.graphics();
+    gfx.setDepth(DEPTH_VFX);
+
+    const progress = { t: 0 };
+    this.scene.tweens.add({
+      targets: progress,
+      t: 1,
+      duration: 200,
+      ease: 'Quad.easeOut',
+      onUpdate: () => {
+        gfx.clear();
+        const currentRadius = radius * progress.t;
+        const currentAlpha = 0.8 * (1 - progress.t);
+        gfx.lineStyle(2, 0xFF6B35, currentAlpha);
+        gfx.strokeCircle(x, y, currentRadius);
+      },
+      onComplete: () => gfx.destroy(),
+    });
+  }
+
+  // -------------------------------------------------------------------------
   // Private helpers
   // -------------------------------------------------------------------------
 

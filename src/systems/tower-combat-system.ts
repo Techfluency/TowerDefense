@@ -75,6 +75,43 @@ const BURN_ZONE_DURATION_SEC = 1.0;
 const PIERCE_COUNT = 2;
 
 // ---------------------------------------------------------------------------
+// BOLT-026: Capstone effect constants
+// ---------------------------------------------------------------------------
+
+/** Steady Aim: damage multiplier on first hit after target re-acquisition. */
+const STEADY_AIM_MULTIPLIER = 1.15;
+
+/** Barrage: fires 2 arrows every Nth shot. */
+const BARRAGE_SHOT_INTERVAL = 5;
+
+/** Headshot: critical hit chance (10%) and multiplier (3x). */
+const HEADSHOT_CHANCE = 0.10;
+const HEADSHOT_MULTIPLIER = 3.0;
+
+/** Lock-On: missile tracking speed multiplier (20% faster). */
+const LOCK_ON_SPEED_MULTIPLIER = 1.2;
+
+/** Tremor: slow duration refreshed each frame (self-cleaning). */
+const TREMOR_SLOW_DURATION_SEC = 0.5;
+/** Tremor: speed multiplier (0.95 = 5% slow). */
+const TREMOR_SLOW_MAGNITUDE = 0.95;
+
+/** Aftershock: damage zone radius in pixels. */
+const AFTERSHOCK_RADIUS = 64;
+/** Aftershock: damage as fraction of blast damage. */
+const AFTERSHOCK_DAMAGE_FRACTION = 0.25;
+/** Aftershock: VFX duration in milliseconds. */
+const AFTERSHOCK_VFX_DURATION_MS = 1000;
+
+/** Flak Field: AoE radius in pixels. */
+const FLAK_FIELD_RADIUS = 64;
+/** Flak Field: AoE damage as fraction of missile damage. */
+const FLAK_FIELD_DAMAGE_FRACTION = 0.30;
+
+/** CRIT floating text color (gold). */
+const COLOR_CRIT_TEXT = '#FFD700';
+
+// ---------------------------------------------------------------------------
 // Per-tower combat state (internal to this system, keyed by instanceId)
 // ---------------------------------------------------------------------------
 
@@ -86,6 +123,10 @@ interface TowerCombatState {
   currentTargetId: string | null;
   /** Last known position of the target (for orphaned projectile destination). */
   lastTargetPosition: { x: number; y: number } | null;
+  /** BOLT-026: Target ID from previous fire, for steady_aim first-hit detection. */
+  previousTargetId: string | null;
+  /** BOLT-026: Per-tower shot counter for barrage every-5th-shot logic. */
+  shotCounter: number;
 }
 
 export class TowerCombatSystem extends BaseSystem {
@@ -113,6 +154,18 @@ export class TowerCombatSystem extends BaseSystem {
 
   /** Status effect system for applying slow/burn from Tier 4 branches. BOLT-019. */
   private statusEffectSystem: StatusEffectSystem | null = null;
+
+  /**
+   * BOLT-026: Set of enemy IDs whose HP bars should be visible due to Spotter capstone.
+   * Written by TowerCombatSystem each frame, read by EnemySystem.drawHealthBars().
+   */
+  private spotterVisibleEnemies: Set<string> = new Set();
+
+  /**
+   * BOLT-026: Maps tower instanceId to the tower type for flak_field event correlation.
+   * Populated each time an antiair tower fires, consumed by the ENEMY_HIT handler.
+   */
+  private lastFiredTowerMap: Map<string, { towerType: string; towerId: string }> = new Map();
 
   /**
    * @param scene - The Gameplay scene.
@@ -144,6 +197,12 @@ export class TowerCombatSystem extends BaseSystem {
 
     /* BOLT-019: Resolve status effect system for Tier 4 branch effects. */
     this.statusEffectSystem = (this.scene.registry.get('statusEffectSystem') as StatusEffectSystem) ?? null;
+
+    /* BOLT-026: Register spotter HP bar visibility set on the registry. */
+    this.scene.registry.set('spotterVisibleEnemies', this.spotterVisibleEnemies);
+
+    /* BOLT-026: Listen for ENEMY_HIT to apply flak_field AoE on missile impact. */
+    this.listen(GAME_EVENTS.ENEMY_HIT, this.onEnemyHitForFlakField as (...args: never[]) => void);
 
     /* Listen for GAME_OVER to halt combat. */
     this.listen(GAME_EVENTS.GAME_OVER, this.onGameOver as (...args: never[]) => void);
@@ -177,6 +236,9 @@ export class TowerCombatSystem extends BaseSystem {
     const towers = this.towerRegistry.getPlacedTowers();
     const activeEnemies = this.enemySystem.getActiveEnemies();
 
+    /* BOLT-026: Clear spotter set each frame; repopulated below per tower. */
+    this.spotterVisibleEnemies.clear();
+
     /* BOLT-024: Read RunBonuses once per frame for stat multipliers and regen.
      * Uses optional chaining because registry may not have RunBonuses in tests. */
     const runBonuses = (this.scene.registry as { get?(key: string): unknown })
@@ -209,9 +271,17 @@ export class TowerCombatSystem extends BaseSystem {
           cooldownAccumulator: 0,
           currentTargetId: null,
           lastTargetPosition: null,
+          previousTargetId: null,
+          shotCounter: 0,
         };
         this.combatStates.set(tower.instanceId, state);
       }
+
+      /* BOLT-026: Read capstone keys for this tower type. */
+      const capstoneKeys = runBonuses?.towerCapstones[tower.towerType] ?? [];
+
+      /* BOLT-026: Passive capstone effects run every frame regardless of targeting. */
+      this.applyPassiveCapstones(tower, def, activeEnemies, stats, capstoneKeys);
 
       /* --- Target acquisition (uses effective range) --- */
       /* BOLT-019: Ground Adapter branch allows anti-air towers to target ground enemies. */
@@ -240,8 +310,8 @@ export class TowerCombatSystem extends BaseSystem {
       if (state.cooldownAccumulator >= firePeriod) {
         state.cooldownAccumulator -= firePeriod;
 
-        /* Fire based on tower class (uses effective damage). BOLT-019: pass full stats for branch effects. */
-        this.fireTower(tower, def, target, stats);
+        /* BOLT-026: Apply fire-triggered capstone effects (modifies damage, fires extra shots). */
+        this.fireTowerWithCapstones(tower, def, target, stats, state, capstoneKeys);
       }
     }
 
@@ -261,6 +331,8 @@ export class TowerCombatSystem extends BaseSystem {
    */
   destroy(): void {
     this.combatStates.clear();
+    this.spotterVisibleEnemies.clear();
+    this.lastFiredTowerMap.clear();
 
     if (this.rangeGraphics) {
       this.rangeGraphics.destroy();
@@ -268,6 +340,7 @@ export class TowerCombatSystem extends BaseSystem {
     }
 
     this.scene.input.off('pointermove', this.onPointerMove, this);
+    this.scene.registry.remove('spotterVisibleEnemies');
     this.scene.registry.remove('towerCombatSystem');
     super.destroy();
   }
@@ -506,13 +579,18 @@ export class TowerCombatSystem extends BaseSystem {
     const projDef = this.configManager.getProjectile(def.projectileType);
     const targetPos = target.getPosition();
 
+    /* BOLT-026: Lock-On capstone boosts missile tracking speed by 20%. */
+    const speed = this._lockOnActive
+      ? projDef.speed * LOCK_ON_SPEED_MULTIPLIER
+      : projDef.speed;
+
     this.projectileSystem.spawnProjectile(
       projDef.spriteKey,
       tower.worldX,
       tower.worldY,
       target.instanceId,
       { x: targetPos.x, y: targetPos.y },
-      projDef.speed,
+      speed,
       effectiveDamage,
       'physical',
       def.id,
@@ -802,6 +880,255 @@ export class TowerCombatSystem extends BaseSystem {
         tower.instanceId,
       );
     }
+  }
+
+  // ---------------------------------------------------------------------------
+  // BOLT-026: Capstone effect dispatch
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Wraps fireTower with capstone-specific pre/post fire logic.
+   * Handles steady_aim damage boost, barrage double shot, headshot crit,
+   * lock_on speed increase, aftershock zone, and flak_field correlation.
+   *
+   * Keeps capstone dispatch separate from the Tier 4 specialEffect dispatch
+   * so both can be active simultaneously on the same tower.
+   */
+  private fireTowerWithCapstones(
+    tower: PlacedTower,
+    def: TowerDefinition,
+    target: Enemy,
+    stats: EffectiveTowerStats,
+    state: TowerCombatState,
+    capstoneKeys: string[],
+  ): void {
+    if (capstoneKeys.length === 0) {
+      /* No capstones -- fire normally. */
+      this.fireTower(tower, def, target, stats);
+      /* Update previousTargetId after fire (even with no capstones, for consistency). */
+      state.previousTargetId = state.currentTargetId;
+      return;
+    }
+
+    /* Clone effective damage so capstone modifications don't leak. */
+    let effectiveDamage = stats.damage;
+
+    /* steady_aim: +15% damage on first hit after target re-acquisition. */
+    const hasSteadyAim = capstoneKeys.includes('steady_aim');
+    if (hasSteadyAim && state.previousTargetId !== state.currentTargetId) {
+      effectiveDamage = Math.floor(effectiveDamage * STEADY_AIM_MULTIPLIER);
+    }
+
+    /* headshot: 10% chance for 3x damage (focused/Sniper towers only). */
+    const hasHeadshot = capstoneKeys.includes('headshot');
+    let isHeadshot = false;
+    if (hasHeadshot && def.towerClass === 'focused') {
+      if (Math.random() < HEADSHOT_CHANCE) {
+        effectiveDamage = Math.floor(effectiveDamage * HEADSHOT_MULTIPLIER);
+        isHeadshot = true;
+      }
+    }
+
+    /* Build modified stats for the fire call. */
+    const modifiedStats: EffectiveTowerStats = {
+      ...stats,
+      damage: effectiveDamage,
+    };
+
+    /* lock_on: store tower info so fireProjectile can use boosted speed. */
+    const hasLockOn = capstoneKeys.includes('lock_on');
+    if (hasLockOn && def.towerClass === 'antiair') {
+      this._lockOnActive = true;
+    }
+
+    /* flak_field: track the last fired tower for ENEMY_HIT correlation. */
+    if (capstoneKeys.includes('flak_field') && def.towerClass === 'antiair') {
+      this.lastFiredTowerMap.set(target.instanceId, {
+        towerType: tower.towerType,
+        towerId: tower.instanceId,
+      });
+    }
+
+    /* Fire the tower with modified stats. */
+    this.fireTower(tower, def, target, modifiedStats);
+    this._lockOnActive = false;
+
+    /* headshot: spawn CRIT floating text after damage is applied. */
+    if (isHeadshot) {
+      const pos = target.getPosition();
+      this.spawnCritText(pos.x, pos.y);
+    }
+
+    /* aftershock: spawn damage zone after broadcast blast. */
+    if (capstoneKeys.includes('aftershock') && def.towerClass === 'broadcast') {
+      this.applyAftershock(tower, modifiedStats.damage);
+    }
+
+    /* barrage: every 5th shot fires a second projectile (ranged towers only). */
+    if (capstoneKeys.includes('barrage') && def.towerClass === 'ranged') {
+      state.shotCounter++;
+      if (state.shotCounter % BARRAGE_SHOT_INTERVAL === 0) {
+        /* Fire a second arrow at the same target. */
+        this.fireProjectile(tower, def, target, stats.damage);
+      }
+    }
+
+    /* Update previousTargetId AFTER fire (steady_aim needs the comparison before fire). */
+    state.previousTargetId = state.currentTargetId;
+  }
+
+  /**
+   * Applies passive capstone effects that run every frame, independent
+   * of whether the tower fires. Currently: spotter and tremor.
+   */
+  private applyPassiveCapstones(
+    tower: PlacedTower,
+    def: TowerDefinition,
+    activeEnemies: Enemy[],
+    stats: EffectiveTowerStats,
+    capstoneKeys: string[],
+  ): void {
+    if (capstoneKeys.length === 0) return;
+
+    /* spotter: populate HP bar visibility set for enemies within focused tower range. */
+    if (capstoneKeys.includes('spotter') && def.towerClass === 'focused') {
+      const rangeSq = stats.range * stats.range;
+      for (const enemy of activeEnemies) {
+        const dx = enemy.sprite.x - tower.worldX;
+        const dy = enemy.sprite.y - tower.worldY;
+        if (dx * dx + dy * dy <= rangeSq) {
+          this.spotterVisibleEnemies.add(enemy.instanceId);
+        }
+      }
+    }
+
+    /* tremor: passive 5% slow aura for ground enemies in broadcast tower range. */
+    if (capstoneKeys.includes('tremor') && def.towerClass === 'broadcast') {
+      if (!this.statusEffectSystem) return;
+      const rangeSq = stats.range * stats.range;
+      for (const enemy of activeEnemies) {
+        /* Tremor only affects ground enemies. */
+        if (enemy.isFlying) continue;
+        const dx = enemy.sprite.x - tower.worldX;
+        const dy = enemy.sprite.y - tower.worldY;
+        if (dx * dx + dy * dy <= rangeSq) {
+          this.statusEffectSystem.applyEffect(
+            enemy.instanceId,
+            'slow',
+            TREMOR_SLOW_DURATION_SEC,
+            TREMOR_SLOW_MAGNITUDE,
+            tower.instanceId,
+          );
+        }
+      }
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // BOLT-026: Capstone effect helpers
+  // ---------------------------------------------------------------------------
+
+  /** Temporary flag for lock_on -- set true during fireProjectile to boost speed. */
+  private _lockOnActive = false;
+
+  /**
+   * Aftershock: spawns a damage zone at the tower's position, dealing
+   * 25% of blast damage as a single tick to enemies within 64px.
+   * The VFX circle persists for 1 second but damage is applied only once.
+   */
+  private applyAftershock(tower: PlacedTower, blastDamage: number): void {
+    const activeEnemies = this.enemySystem.getActiveEnemies();
+    const radiusSq = AFTERSHOCK_RADIUS * AFTERSHOCK_RADIUS;
+    const zoneDamage = Math.floor(blastDamage * AFTERSHOCK_DAMAGE_FRACTION);
+
+    /* Single damage tick to all ground enemies in the zone at creation. */
+    for (const enemy of activeEnemies) {
+      if (enemy.isFlying) continue;
+      const dx = enemy.sprite.x - tower.worldX;
+      const dy = enemy.sprite.y - tower.worldY;
+      if (dx * dx + dy * dy <= radiusSq) {
+        this.enemySystem.applyDamageToEnemy(enemy.instanceId, zoneDamage, 'physical');
+      }
+    }
+
+    /* Play aftershock damage zone VFX. */
+    if (this.vfxManager) {
+      this.vfxManager.playAftershockZone(
+        tower.worldX, tower.worldY, AFTERSHOCK_RADIUS, AFTERSHOCK_VFX_DURATION_MS,
+      );
+    }
+  }
+
+  /**
+   * Spawns a "CRIT" floating text at the given position for headshot feedback.
+   * Uses HudSystem's floatingText pattern -- creates a text that rises and fades.
+   */
+  private spawnCritText(x: number, y: number): void {
+    const text = this.scene.add.text(x, y - 15, 'CRIT', {
+      fontSize: '15px',
+      fontFamily: 'monospace',
+      fontStyle: 'bold',
+      color: COLOR_CRIT_TEXT,
+    }).setOrigin(0.5).setDepth(99);
+
+    this.scene.tweens.add({
+      targets: text,
+      y: y - 45,
+      alpha: 0,
+      scale: 0.8,
+      duration: 1500,
+      ease: 'Power2',
+      onComplete: () => text.destroy(),
+    });
+  }
+
+  /**
+   * ENEMY_HIT handler for flak_field AoE. When a missile hits its primary target
+   * and the source tower has flak_field active, apply 30% splash damage to
+   * all enemies within 64px of the impact (excluding the primary target).
+   */
+  private onEnemyHitForFlakField(payload: EnemyHitPayload): void {
+    if (!this.combatActive) return;
+
+    /* Only process missile impacts (flak_field is AA Missile capstone). */
+    if (payload.projectileType !== 'missile') return;
+
+    /* Correlate the hit enemy to the last tower that fired at it. */
+    const towerInfo = this.lastFiredTowerMap.get(payload.enemyId);
+    if (!towerInfo) return;
+
+    /* Check if the source tower's type has flak_field active. */
+    const runBonuses = (this.scene.registry as { get?(key: string): unknown })
+      ?.get?.('runBonuses') as import('../types/game-types').RunBonuses | undefined ?? null;
+    const capstoneKeys = runBonuses?.towerCapstones[towerInfo.towerType] ?? [];
+    if (!capstoneKeys.includes('flak_field')) return;
+
+    /* Apply AoE damage to enemies within radius, excluding the primary target. */
+    const activeEnemies = this.enemySystem.getActiveEnemies();
+    const radiusSq = FLAK_FIELD_RADIUS * FLAK_FIELD_RADIUS;
+    const aoeDamage = Math.floor(payload.damage * FLAK_FIELD_DAMAGE_FRACTION);
+    const impactX = payload.position.x;
+    const impactY = payload.position.y;
+
+    for (const enemy of activeEnemies) {
+      /* Exclude the primary target per AC-27. */
+      if (enemy.instanceId === payload.enemyId) continue;
+      if (!enemy.isAlive()) continue;
+
+      const dx = enemy.sprite.x - impactX;
+      const dy = enemy.sprite.y - impactY;
+      if (dx * dx + dy * dy <= radiusSq) {
+        this.enemySystem.applyDamageToEnemy(enemy.instanceId, aoeDamage, 'physical');
+      }
+    }
+
+    /* Play flak burst VFX at impact position. */
+    if (this.vfxManager) {
+      this.vfxManager.playFlakBurst(impactX, impactY, FLAK_FIELD_RADIUS);
+    }
+
+    /* Clean up correlation entry. */
+    this.lastFiredTowerMap.delete(payload.enemyId);
   }
 
   // ---------------------------------------------------------------------------

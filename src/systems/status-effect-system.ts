@@ -36,15 +36,27 @@ const BURN_TICK_INTERVAL = 1 / BURN_TICKS_PER_SECOND;
 // Per-enemy effect tracking
 // ---------------------------------------------------------------------------
 
+/**
+ * BOLT-026: Maximum total slow percentage from all sources combined.
+ * Prevents enemy speed from being reduced below 50% of base speed.
+ */
+const MAX_SLOW_PERCENT = 0.50;
+
 /** Internal state for tracking active effects on a single enemy. */
 interface EnemyEffectState {
-  /** Active status effects keyed by effect type (max one per type). */
+  /** Active non-slow status effects keyed by effect type. */
   effects: Map<StatusEffectType, StatusEffect>;
   /**
-   * The enemy's speed before any slow was applied. Used to restore speed
-   * when the slow effect expires. Only set while a slow is active.
+   * BOLT-026: Multiple slow sources tracked individually (keyed by sourceTowerId).
+   * Each entry has its own duration and magnitude. Combined slow is capped at 50%.
    */
-  preSlowSpeed?: number;
+  slowSources: Map<string, StatusEffect>;
+  /**
+   * The enemy's base speed before any slow was applied. Used to recompute
+   * speed each frame from the combined slow percentage. Only set while
+   * at least one slow source is active.
+   */
+  baseSpeed?: number;
   /** Accumulator for burn tick timing (seconds since last burn tick). */
   burnTickAccumulator: number;
 }
@@ -82,13 +94,11 @@ export class StatusEffectSystem extends BaseSystem {
     const dt = delta / 1000;
 
     for (const [enemyId, state] of this.enemyEffects) {
-      /* Process each active effect on this enemy. */
+      /* Process each active non-slow effect on this enemy. */
       for (const [type, effect] of state.effects) {
-        /* Decrement remaining duration. */
         effect.remainingDuration -= dt;
 
         if (effect.remainingDuration <= 0) {
-          /* Effect expired -- remove it and undo any persistent changes. */
           this.removeEffect(enemyId, type, state);
           continue;
         }
@@ -103,8 +113,23 @@ export class StatusEffectSystem extends BaseSystem {
         }
       }
 
-      /* Clean up entry if no effects remain. */
-      if (state.effects.size === 0) {
+      /* BOLT-026: Process slow sources independently, each with its own timer. */
+      let slowChanged = false;
+      for (const [sourceId, slowEffect] of state.slowSources) {
+        slowEffect.remainingDuration -= dt;
+        if (slowEffect.remainingDuration <= 0) {
+          state.slowSources.delete(sourceId);
+          slowChanged = true;
+        }
+      }
+
+      /* Recompute combined slow when any source expired. */
+      if (slowChanged) {
+        this.recomputeEnemySpeed(enemyId, state);
+      }
+
+      /* Clean up entry if no effects or slow sources remain. */
+      if (state.effects.size === 0 && state.slowSources.size === 0) {
         this.enemyEffects.delete(enemyId);
       }
     }
@@ -142,20 +167,42 @@ export class StatusEffectSystem extends BaseSystem {
   ): void {
     let state = this.enemyEffects.get(enemyId);
     if (!state) {
-      state = { effects: new Map(), burnTickAccumulator: 0 };
+      state = { effects: new Map(), slowSources: new Map(), burnTickAccumulator: 0 };
       this.enemyEffects.set(enemyId, state);
     }
 
+    /* BOLT-026: Slow effects are tracked per-source for additive stacking with cap. */
+    if (type === 'slow') {
+      const existing = state.slowSources.get(sourceTowerId);
+      if (existing) {
+        /* Refresh duration for this source without changing magnitude. */
+        existing.remainingDuration = duration;
+        existing.totalDuration = duration;
+        return;
+      }
+
+      /* New slow source -- add and recompute. */
+      const effect: StatusEffect = {
+        type: 'slow',
+        remainingDuration: duration,
+        totalDuration: duration,
+        magnitude,
+        sourceTowerId,
+      };
+      state.slowSources.set(sourceTowerId, effect);
+      this.recomputeEnemySpeed(enemyId, state);
+      return;
+    }
+
+    /* Non-slow effects: one per type, refresh on re-apply. */
     const existing = state.effects.get(type);
     if (existing) {
-      /* Refresh duration without stacking magnitude. */
       existing.remainingDuration = duration;
       existing.totalDuration = duration;
       existing.sourceTowerId = sourceTowerId;
       return;
     }
 
-    /* Apply new effect. */
     const effect: StatusEffect = {
       type,
       remainingDuration: duration,
@@ -164,11 +211,6 @@ export class StatusEffectSystem extends BaseSystem {
       sourceTowerId,
     };
     state.effects.set(type, effect);
-
-    /* For slow effects, capture the enemy's current speed and apply the reduction. */
-    if (type === 'slow') {
-      this.applySlowToEnemy(enemyId, magnitude, state);
-    }
   }
 
   /**
@@ -180,11 +222,15 @@ export class StatusEffectSystem extends BaseSystem {
    */
   hasEffect(enemyId: string, type: StatusEffectType): boolean {
     const state = this.enemyEffects.get(enemyId);
-    return state?.effects.has(type) ?? false;
+    if (!state) return false;
+    /* BOLT-026: Slow effects are in slowSources, not effects. */
+    if (type === 'slow') return state.slowSources.size > 0;
+    return state.effects.has(type);
   }
 
   /**
    * Returns all active effects on an enemy (for UI/VFX queries).
+   * BOLT-026: Includes slow sources as individual entries.
    *
    * @param enemyId - Instance ID of the enemy.
    * @returns Array of active StatusEffects, or empty array if none.
@@ -192,7 +238,7 @@ export class StatusEffectSystem extends BaseSystem {
   getEffects(enemyId: string): StatusEffect[] {
     const state = this.enemyEffects.get(enemyId);
     if (!state) return [];
-    return [...state.effects.values()];
+    return [...state.effects.values(), ...state.slowSources.values()];
   }
 
   /**
@@ -204,12 +250,13 @@ export class StatusEffectSystem extends BaseSystem {
     const state = this.enemyEffects.get(enemyId);
     if (!state) return;
 
-    /* Restore speed before clearing slow effects. */
-    if (state.effects.has('slow') && state.preSlowSpeed !== undefined) {
+    /* BOLT-026: Restore base speed if any slow sources were active. */
+    if (state.slowSources.size > 0 && state.baseSpeed !== undefined) {
       this.restoreEnemySpeed(enemyId, state);
     }
 
     state.effects.clear();
+    state.slowSources.clear();
     this.enemyEffects.delete(enemyId);
   }
 
@@ -218,12 +265,13 @@ export class StatusEffectSystem extends BaseSystem {
   // ---------------------------------------------------------------------------
 
   /**
-   * Applies the slow speed reduction to an enemy.
-   * Captures the pre-slow speed so it can be restored when the effect expires.
+   * BOLT-026: Recomputes the enemy's speed from all active slow sources.
+   * Uses additive slow percentages capped at MAX_SLOW_PERCENT (50%).
+   * Magnitude is a speed multiplier (0.95 = 5% slow, 0.70 = 30% slow).
+   * Slow percentage = 1 - magnitude. Combined = sum of all slow percentages, capped.
    */
-  private applySlowToEnemy(
+  private recomputeEnemySpeed(
     enemyId: string,
-    magnitude: number,
     state: EnemyEffectState,
   ): void {
     if (!this.enemySystem) return;
@@ -232,28 +280,46 @@ export class StatusEffectSystem extends BaseSystem {
     const enemy = enemies.find(e => e.instanceId === enemyId);
     if (!enemy) return;
 
-    /* Store the speed to restore later (use baseSpeed to avoid aura interactions). */
-    state.preSlowSpeed = enemy.currentSpeed;
+    /* Capture base speed on first slow application. */
+    if (state.baseSpeed === undefined) {
+      state.baseSpeed = enemy.currentSpeed;
+    }
 
-    /* Apply the slow multiplier. magnitude is the target speed ratio (e.g., 0.7 for 30% slow). */
-    enemy.currentSpeed = enemy.currentSpeed * magnitude;
+    if (state.slowSources.size === 0) {
+      /* No slow sources left -- restore base speed. */
+      enemy.currentSpeed = state.baseSpeed;
+      state.baseSpeed = undefined;
+      return;
+    }
+
+    /* Sum slow percentages from all active sources. */
+    let totalSlowPercent = 0;
+    for (const slowEffect of state.slowSources.values()) {
+      totalSlowPercent += (1 - slowEffect.magnitude);
+    }
+
+    /* Cap total slow at MAX_SLOW_PERCENT. */
+    totalSlowPercent = Math.min(MAX_SLOW_PERCENT, totalSlowPercent);
+
+    /* Apply combined slow to base speed. */
+    enemy.currentSpeed = state.baseSpeed * (1 - totalSlowPercent);
   }
 
   /**
-   * Restores an enemy's speed after a slow effect expires.
+   * Restores an enemy's speed after all slow effects expire.
    */
   private restoreEnemySpeed(
     enemyId: string,
     state: EnemyEffectState,
   ): void {
-    if (!this.enemySystem || state.preSlowSpeed === undefined) return;
+    if (!this.enemySystem || state.baseSpeed === undefined) return;
 
     const enemies = this.enemySystem.getActiveEnemies();
     const enemy = enemies.find(e => e.instanceId === enemyId);
     if (!enemy) return;
 
-    enemy.currentSpeed = state.preSlowSpeed;
-    state.preSlowSpeed = undefined;
+    enemy.currentSpeed = state.baseSpeed;
+    state.baseSpeed = undefined;
   }
 
   /**
@@ -269,17 +335,14 @@ export class StatusEffectSystem extends BaseSystem {
   }
 
   /**
-   * Removes a specific effect type from an enemy and undoes persistent changes.
+   * Removes a specific non-slow effect type from an enemy.
+   * Slow effects are managed via slowSources and recomputeEnemySpeed.
    */
   private removeEffect(
-    enemyId: string,
+    _enemyId: string,
     type: StatusEffectType,
     state: EnemyEffectState,
   ): void {
-    if (type === 'slow') {
-      this.restoreEnemySpeed(enemyId, state);
-    }
-
     state.effects.delete(type);
   }
 
